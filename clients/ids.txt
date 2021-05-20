@@ -1,0 +1,4 @@
+Robot 1 (Top left corner) = Bastiaan
+Robot 2 (Top right corner) = Eki
+Robot 3 (Bottom left corner) = Maarten
+Robot 4 (Bottom right corner) = Rowdey
