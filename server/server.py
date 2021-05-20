@@ -125,8 +125,8 @@ def handleRobotConnectionThread(connection):
                             }
                         }).encode("utf8"))
 
-            # Delete direction message
-            if message["type"] == "delete_direction":
+            # Cancel direction message
+            if message["type"] == "cancel_direction":
                 robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                 for i, direction in enumerate(robot["directions"]):
                     if direction["id"] == message["data"]["direction"]["id"]:
@@ -136,7 +136,7 @@ def handleRobotConnectionThread(connection):
                 for otherRobot in robots:
                     if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
                         otherRobot["connection"].send(json.dumps({
-                            "type": "delete_direction",
+                            "type": "cancel_direction",
                             "data": {
                                 "robot_id": robot["id"],
                                 "direction": {
