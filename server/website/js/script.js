@@ -1,8 +1,8 @@
 // Constants
 const WEBSOCKETS_PORT = 8082;
 
-const MAP_WIDTH = 12;
-const MAP_HEIGHT = 12;
+const MAP_WIDTH = 16;
+const MAP_HEIGHT = 16;
 const TILE_UNKOWN = 0;
 const TILE_NORMAL = 1;
 const TILE_CHEST = 2;
@@ -55,12 +55,12 @@ const app = new Vue({
                 const message = JSON.parse(event.data);
 
                 if (message.type == 'connect') {
-                    const robot = this.robots.find(robot => robot.id == message.data.id);
+                    const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = true;
                 }
 
                 if (message.type == 'disconnect') {
-                    const robot = this.robots.find(robot => robot.id == message.data.id);
+                    const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = false;
                 }
             };

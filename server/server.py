@@ -9,8 +9,8 @@ import websockets
 SERVER_PORT = 8080
 WEBSOCKETS_PORT = 8082
 
-MAP_WIDTH = 12
-MAP_HEIGHT = 12
+MAP_WIDTH = 16
+MAP_HEIGHT = 16
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
 TILE_CHEST = 2
@@ -41,47 +41,113 @@ robots = [
 # Communications server
 def handleRobotConnectionThread(connection):
     while data := connection.recv(1024):
-        print("[SERVER] Robot message: " + data.decode())
-        message = json.loads(data)
+        # Split maybe concated json messages
+        messages = data.decode().split('}{')
+        if len(messages) > 1:
+            for i in range(len(messages)):
+                if i == 0:
+                    messages[i] = messages[i] + '}'
+                elif i == len(messages) - 1:
+                    messages[i] = '{' + messages[i]
+                else:
+                    messages[i] = '{' + messages[i] + '}'
 
-        # Connect message
-        if message["type"] == "connect":
-            robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
+        # Read every incomming json message
+        for message in messages:
+            print("[SERVER] Robot message: " + message)
+            message = json.loads(message)
 
-            robot["connection"] = connection
-            print("[SERVER] Robot " + str(robot["id"]) + " is connected")
+            # Connect message
+            if message["type"] == "connect":
+                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+                robot["connection"] = connection
+                print("[SERVER] Robot " + str(robot["id"]) + " is connected")
 
-            for otherRobot in robots:
-                if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                    otherRobot["connection"].sendall(bytearray(json.dumps({
-                        "type": "connect",
-                        "data": {
-                            "id": robot["id"]
-                        }
-                    }), "UTF-8"))
+                for otherRobot in robots:
+                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
+                        # Send robot connect message of this other robot
+                        robot["connection"].send(json.dumps({
+                            "type": "connect",
+                            "data": {
+                                "robot_id": otherRobot["id"]
+                            }
+                        }).encode("utf8"))
 
-        # Direction message
-        if message["type"] == "direction":
-            robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
-            robot["directions"].append({
-                "x": message["data"]["x"],
-                "x": message["data"]["y"]
-            })
+                        # Send other robot connect message of this robot
+                        otherRobot["connection"].send(json.dumps({
+                            "type": "connect",
+                            "data": {
+                                "robot_id": robot["id"]
+                            }
+                        }).encode("utf8"))
 
-            for otherRobot in robots:
-                if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                    otherRobot["connection"].sendall(bytearray(json.dumps({
-                        "type": "direction",
-                        "data": {
-                            "id": robot["id"],
-                            "x": message["data"]["x"],
-                            "y": message["data"]["y"]
-                        }
-                    }), "UTF-8"))
+            # New direction message
+            if message["type"] == "new_direction":
+                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+                robot["directions"].append({
+                    "id": message["data"]["direction"]["id"],
+                    "x": message["data"]["direction"]["x"],
+                    "y": message["data"]["direction"]["y"]
+                })
 
-        # Tick done message
-        if message["type"] == "tick_done":
-            pass
+                for otherRobot in robots:
+                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
+                        otherRobot["connection"].send(json.dumps({
+                            "type": "new_direction",
+                            "data": {
+                                "robot_id": robot["id"],
+                                "direction": {
+                                    "id": message["data"]["direction"]["id"],
+                                    "x": message["data"]["direction"]["x"],
+                                    "y": message["data"]["direction"]["y"]
+                                }
+                            }
+                        }).encode("utf8"))
+
+            # Update direction message
+            if message["type"] == "update_direction":
+                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+                direction = next((direction for direction in robot["directions"] if direction["id"] == message["data"]["direction"]["id"]), None)
+                direction["x"] = message["data"]["direction"]["x"]
+                direction["y"] = message["data"]["direction"]["y"]
+
+                for otherRobot in robots:
+                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
+                        otherRobot["connection"].send(json.dumps({
+                            "type": "update_direction",
+                            "data": {
+                                "robot_id": robot["id"],
+                                "direction": {
+                                    "id": message["data"]["direction"]["id"],
+                                    "x": message["data"]["direction"]["x"],
+                                    "y": message["data"]["direction"]["y"]
+                                }
+                            }
+                        }).encode("utf8"))
+
+            # Delete direction message
+            if message["type"] == "delete_direction":
+                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+                for i, direction in enumerate(robot["directions"]):
+                    if direction["id"] == message["data"]["direction"]["id"]:
+                        del robot["directions"][i]
+                        break
+
+                for otherRobot in robots:
+                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
+                        otherRobot["connection"].send(json.dumps({
+                            "type": "delete_direction",
+                            "data": {
+                                "robot_id": robot["id"],
+                                "direction": {
+                                    "id": message["data"]["direction"]["id"]
+                                }
+                            }
+                        }).encode("utf8"))
+
+            # Tick done message
+            if message["type"] == "tick_done":
+                pass
 
     # Disconnect message
     for robot in robots:
@@ -91,12 +157,12 @@ def handleRobotConnectionThread(connection):
 
             for robot in robots:
                 if robot["connection"] != None:
-                    robot["connection"].sendall(bytearray(json.dumps({
+                    robot["connection"].send(json.dumps({
                         "type": "disconnect",
                         "data": {
-                            "id": robot["id"]
+                            "robot_id": robot["id"]
                         }
-                    }), "UTF-8"))
+                    }).encode("utf8"))
             break
 
 # Start communication server
@@ -121,7 +187,7 @@ async def websocketsConnection(websocket, uri):
             await websocket.send(json.dumps({
                 "type": "connect",
                 "data": {
-                    "id": robot["id"]
+                    "robot_id": robot["id"]
                 }
             }))
 
