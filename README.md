@@ -1,6 +1,19 @@
 # MegaBots Deluxe!!!
 Some mega bots living in a grid
 
+## Run the server and clients:
+- Install the websockets Python package:
+
+    ```
+    pip install websockets
+    ```
+
+- Run the `test.sh` script to start all processes:
+
+    ```
+    ./test.sh
+    ```
+
 ## Protocol idea:
 ```
 -- Overview:
@@ -24,6 +37,11 @@ loop {
     < robot 3 { tick_done }
     < robot 4 { tick_done }
 }
+
+# Robot 1 disconnects
+< robot 2 { disconnect }
+< robot 3 { disconnect }
+< robot 4 { disconnect }
 
 -- Connect message
 {"type":"connect","data":{"id":1}}

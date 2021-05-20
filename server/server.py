@@ -1,15 +1,16 @@
 # MegaBots communication server
-
 import socket
 import json
 import threading
+import asyncio
+import websockets
 
 # Constants
 SERVER_PORT = 8080
+WEBSOCKETS_PORT = 8082
 
 MAP_WIDTH = 12
 MAP_HEIGHT = 12
-
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
 TILE_WALL = 2
@@ -37,7 +38,7 @@ robots = [
 ]
 
 # Communications server
-def handleRobotConnection(connection):
+def handleRobotConnectionThread(connection):
     while data := connection.recv(1024):
         print("[SERVER] Robot message: " + data.decode())
         message = json.loads(data)
@@ -98,10 +99,39 @@ def handleRobotConnection(connection):
             break
 
 # Start communication server
-with socket.create_server(("127.0.0.1", SERVER_PORT)) as server:
-    print("[SERVER] Communication server is listening at 127.0.0.1:" + str(SERVER_PORT))
-    server.listen()
+def communicationServerThread():
+    with socket.create_server(("127.0.0.1", SERVER_PORT)) as server:
+        print("[SERVER] Communication server is listening at 127.0.0.1:" + str(SERVER_PORT))
+        server.listen()
+        while True:
+            connection, address = server.accept()
+            connectionThread = threading.Thread(target = handleRobotConnectionThread, args = (connection,))
+            connectionThread.start()
+communicationThread = threading.Thread(target = communicationServerThread)
+communicationThread.start()
+
+# Start websockets server
+async def websocketsConnection(websocket, uri):
+    print("[SERVER] Websockets connected")
+
+    # Send connected message of all robots that all ready are connected
+    for robot in robots:
+        if robot["connection"] != None:
+            await websocket.send(json.dumps({
+                "type": "connect",
+                "data": {
+                    "id": robot["id"]
+                }
+            }))
+
     while True:
-        connection, address = server.accept()
-        thread = threading.Thread(target = handleRobotConnection, args = (connection,))
-        thread.start()
+        try:
+            data = await websocket.recv()
+            print("[SERVER] Websockets message: " + data)
+        except:
+            print("[SERVER] Websockets disconnected")
+            return
+
+server = websockets.serve(websocketsConnection, "127.0.0.1", WEBSOCKETS_PORT)
+asyncio.get_event_loop().run_until_complete(server)
+asyncio.get_event_loop().run_forever()

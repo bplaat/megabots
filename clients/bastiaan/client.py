@@ -4,13 +4,12 @@ import socket
 import json
 
 # Constants
-ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
-
 SERVER_PORT = 8080
+
+ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
 
 MAP_WIDTH = 12
 MAP_HEIGHT = 12
-
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
 TILE_WALL = 2
@@ -61,37 +60,59 @@ with socket.socket() as client:
         print("[ROBOT " + str(ROBOT_ID) + "] Server message: " + data.decode())
         message = json.loads(data)
 
+        # Connect message
         if message["type"] == "connect":
-            robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
-            robot["connected"] = True
-            print("[ROBOT " + str(ROBOT_ID) + "] Robot " + str(robot["id"]) + " is connected")
+            otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
+            otherRobot["connected"] = True
+            print("[ROBOT " + str(ROBOT_ID) + "] Robot " + str(otherRobot["id"]) + " is connected")
 
+        # Disconnect message
         if message["type"] == "disconnect":
-            robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
-            robot["connected"] = False
-            print("[ROBOT " + str(ROBOT_ID) + "] Robot " + str(robot["id"]) + " is disconnected")
+            otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
+            otherRobot["connected"] = False
+            print("[ROBOT " + str(ROBOT_ID) + "] Robot " + str(otherRobot["id"]) + " is disconnected")
 
+        # Direction message
         if message["type"] == "direction":
-            robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
-            robot["directions"].append({
+            otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
+            otherRobot["directions"].append({
                 "x": message["data"]["x"],
                 "y": message["data"]["y"]
             })
 
+        # Tick message
         if message["type"] == "tick":
-            if len(directions_queue) > 0:
-                # Calculate path
+            if len(robot["directions"]) > 0:
+                # Calculate fastest path to robot["directions"][0]
 
-                # Do step
+                # Do step in the right direction
 
-                # Send response
-                pass
+                # Read sensors back to map
 
+                # Send tick done message
+                client.sendall(bytearray(json.dumps({
+                    "type": "tick_done",
+                    "data": {
+                        "id": ROBOT_ID,
+                        "position": {
+                            "x": robot["x"],
+                            "y": robot["y"]
+                        },
+                        "map": [
+                            { "x": robot["x"] - 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] },
+                            { "x": robot["x"] + 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] },
+                            { "x": robot["x"], "y": robot["y"] - 1, "type": map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] },
+                            { "x": robot["x"], "y": robot["y"] + 1, "type": map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] }
+                        ]
+                    }
+                }), "UTF-8"))
+
+        # Tick done message
         if message["type"] == "tick_done":
             if message["data"]["id"] != ROBOT_ID:
-                robot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
-                robot["x"] = message["data"]["position"]["x"]
-                robot["y"] = message["data"]["position"]["y"]
+                otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["id"]), None)
+                otherRobot["x"] = message["data"]["position"]["x"]
+                otherRobot["y"] = message["data"]["position"]["y"]
 
                 for mapUpdate in message["data"]["map"]:
                     map[mapUpdate["y"] * MAP_WIDTH + mapUpdate["x"]] = mapUpdate["type"]
