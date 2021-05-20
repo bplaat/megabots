@@ -13,7 +13,8 @@ MAP_WIDTH = 12
 MAP_HEIGHT = 12
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
-TILE_WALL = 2
+TILE_CHEST = 2
+TILE_WALL = 3
 
 # Init square map with robots in corners and all around wall
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)

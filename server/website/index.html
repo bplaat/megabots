@@ -5,18 +5,20 @@
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MegaBots</title>
-    <link rel="stylesheet" href="/style.css">
-    <script src="/vue.min.js"></script>
+    <link rel="stylesheet" href="/css/style.css">
+    <script src="/js/vue.min.js"></script>
+    <script src="/js/three.min.js"></script>
+    <script src="/js/OrbitControls.min.js"></script>
 </head>
 <body>
     <div id="app">
         <h1>MegaBots</h1>
-        <p>{{ connected ? 'Connected' : 'Disconnected'}}</p>
+        <p>{{ connected ? 'Connected with the communication server' : 'Disconnected from the communication server'}}</p>
 
-        <h2>Robots</h2>
+        <h2>Robots:</h2>
         <ul>
             <li v-for="robot in robots" :key="robot.id">
-                Robot {{ robot.id }}: {{ robot.x }}x{{ robot.y }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
+                <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x }}x{{ robot.y }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
                 <ul v-if="robot.directions.length > 0">
                     <li v-for="direction, index in robot.directions">
                         Drive to: {{ direction.x }}x{{ direction.y }} <b v-if="index == 0">CURRENT</b>
@@ -24,10 +26,13 @@
                 </ul>
             </li>
         </ul>
-
-        <p>Made by <a href="https://bastiaan.ml/" target="_blank">Bastiaan van der Plaat</a>, Eki Pratama, Maarten Brilleman en Rowdey Goos</p>
     </div>
 
-    <script src="/script.js"></script>
+    <h2>Live map:</h2>
+    <canvas id="canvas"></canvas>
+
+    <p>Made by <a href="https://bastiaan.ml/" target="_blank">Bastiaan van der Plaat</a>, Eki Pratama, Maarten Brilleman en Rowdey Goos</p>
+
+    <script src="/js/script.js"></script>
 </body>
 </html>

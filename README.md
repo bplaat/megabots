@@ -58,15 +58,16 @@ loop {
 -- Tick done (Robot 1 -> Server) message
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
-TILE_WALL = 2
+TILE_CHEST = 2
+TILE_WALL = 3
 
 {"type":"tick_done","data":{
     "id": 1,
     "position": { "x": 4, "y": 4 },
     "map": [
-        { "x": 3, "y": 4, "type": 3 },
+        { "x": 3, "y": 4, "type": 1 },
         { "x": 5, "y": 4, "type": 3 },
-        { "x": 4, "y": 3, "type": 3 },
+        { "x": 4, "y": 3, "type": 1 },
         { "x": 4, "y": 5, "type": 3 }
     ]
 }}
@@ -76,9 +77,9 @@ TILE_WALL = 2
     "id": 1,
     "position": { "x": 4, "y": 4 },
     "map": [
-        { "x": 3, "y": 4, "type": 3 },
+        { "x": 3, "y": 4, "type": 1 },
         { "x": 5, "y": 4, "type": 3 },
-        { "x": 4, "y": 3, "type": 3 },
+        { "x": 4, "y": 3, "type": 1 },
         { "x": 4, "y": 5, "type": 3 }
     ]
 }}
