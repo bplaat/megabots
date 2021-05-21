@@ -1,5 +1,5 @@
 // Constants
-const DEBUG = true;
+const DEBUG = false;
 
 const WEBSOCKETS_PORT = 8080;
 
@@ -13,7 +13,7 @@ const TILE_WALL = 3;
 
 // App
 let websocket, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
-const mapMeshes = [], robotsGroups = [];
+const mapMeshes = [], robotsGroups = [], robotDestinationGroups = [];
 
 function rand (min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -70,11 +70,22 @@ const app = new Vue({
                 }
 
                 if (!isDiscovered) {
-                    // Get list off all unkown tiles
+                    // Get list off all unkown tiles that are not arounded with chests
                     let unkownTiles = [];
-                    for (let y = 0; y < this.mapHeight; y++) {
-                        for (let x = 0; x < this.mapWidth; x++) {
-                            if (this.mapData[y * this.mapWidth + x] == TILE_UNKOWN) {
+                    for (let y = 1; y < this.mapHeight - 1; y++) {
+                        for (let x = 1; x < this.mapWidth - 1; x++) {
+                            if (
+                                this.mapData[y * this.mapWidth + x] == TILE_UNKOWN
+                            ) {
+                                if (
+                                    this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST &&
+                                    this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST &&
+                                    this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST &&
+                                    this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST
+                                ) {
+                                    continue;
+                                }
+
                                 unkownTiles.push({ x: x, y: y });
                             }
                         }
@@ -191,6 +202,7 @@ const app = new Vue({
                             y: direction.y
                         })
                     }
+                    this.worldUpdateRobotDestination(robot.id);
 
                     robot.connected = true;
                 }
@@ -200,8 +212,9 @@ const app = new Vue({
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = false;
 
-                    if (robotsGroups.length > 0) {
+                    if (robotsGroups.length > 0 && robotDestinationGroups.lenght > 0) {
                         robotsGroups[robot.id - 1].visible = false;
+                        robotDestinationGroups[robot.id - 1].visible = false;
                     }
                 }
 
@@ -239,12 +252,14 @@ const app = new Vue({
                         x: message.data.direction.x,
                         y: message.data.direction.y
                     });
+                    this.worldUpdateRobotDestination(robot.id);
                 }
 
                 // Cancel direction message
                 if (message.type == 'cancel_direction') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.directions = robot.directions.filter(direction => direction.id != message.data.direction.id);
+                    this.worldUpdateRobotDestination(robot.id);
                 }
 
                 // Tick done message
@@ -369,28 +384,60 @@ const app = new Vue({
 
         worldMoveRobot(robotId, x, y) {
             const robot = this.robots.find(robot => robot.id == robotId);
+            robot.x = x;
+            robot.y = y;
 
             if (robotsGroups.length > 0) {
-                if (robotsGroups[robot.id - 1].visible) {
-                    const coords = { x: robot.x, y: robot.y }
+                const robotsGroup = robotsGroups[robot.id - 1];
+
+                if (robotsGroup.visible) {
+                    const coords = { x: robotsGroup.position.x, y: robotsGroup.position.z };
                     const tween = new TWEEN.Tween(coords)
-                        .to({ x: x, y: y}, this.tickSpeed)
+                        .to({
+                            x: robot.x - this.mapWidth / 2,
+                            y: robot.y - this.mapHeight / 2
+                        }, this.tickSpeed)
                         .easing(TWEEN.Easing.Quadratic.Out)
                         .onUpdate(() => {
-                            robotsGroups[robot.id - 1].position.x = coords.x - this.mapWidth / 2;
-                            robotsGroups[robot.id - 1].position.z = coords.y - this.mapHeight / 2;
+                            robotsGroup.position.x = coords.x;
+                            robotsGroup.position.z = coords.y;
                         })
                         .start();
                 } else {
-                    robotsGroups[robot.id - 1].position.x = x - this.mapWidth / 2;
-                    robotsGroups[robot.id - 1].position.z = y - this.mapHeight / 2;
+                    robotsGroup.position.x = x - this.mapWidth / 2;
+                    robotsGroup.position.z = y - this.mapHeight / 2;
+                    robotsGroup.visible = true;
                 }
-
-                robotsGroups[robot.id - 1].visible = true;
             }
+        },
 
-            robot.x = x;
-            robot.y = y;
+        worldUpdateRobotDestination(robotId) {
+            const robot = this.robots.find(robot => robot.id == robotId);
+
+            if (robotDestinationGroups.length > 0) {
+                const robotDestinationGroup = robotDestinationGroups[robot.id - 1];
+
+                if (robot.directions.length > 0) {
+                    robotDestinationGroup.visible = true;
+                    if (robotDestinationGroup.position.x != 0 && robotDestinationGroup.position.z != 0) {
+                        const coords = { x: robotDestinationGroup.position.x, y: robotDestinationGroup.position.z };
+                        const tween = new TWEEN.Tween(coords)
+                            .to({
+                                x: robot.directions[0].x - this.mapWidth / 2,
+                                y: robot.directions[0].y - this.mapHeight / 2
+                            }, this.tickSpeed)
+                            .easing(TWEEN.Easing.Quadratic.Out)
+                            .onUpdate(() => {
+                                robotDestinationGroup.position.x = coords.x;
+                                robotDestinationGroup.position.z = coords.y;
+                            })
+                            .start();
+                    } else {
+                        robotDestinationGroup.position.x = robot.directions[0].x - this.mapWidth / 2;
+                        robotDestinationGroup.position.z = robot.directions[0].y - this.mapHeight / 2;
+                    }
+                }
+            }
         },
 
         startWorldSimulation() {
@@ -463,8 +510,10 @@ const app = new Vue({
             const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.999, 32);
             const robotTexure = new THREE.TextureLoader().load('/images/robot.jpg');
             const sensorGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+            const destinationGeometry = new THREE.ConeGeometry( 0.3, 0.5, 32);
 
             for (const robot of this.robots) {
+                // Robot group
                 const robotGroup = new THREE.Group();
                 if (robot.x != undefined && robot.y != undefined) {
                     robotGroup.position.x = robot.x - this.mapWidth / 2;
@@ -495,6 +544,22 @@ const app = new Vue({
                 const sensorMesh4 = new THREE.Mesh(sensorGeometry, sensorMaterial);
                 sensorMesh4.position.z = 0.3;
                 robotGroup.add(sensorMesh4);
+
+                // Robot destination group
+                const robotDestinationGroup = new THREE.Group();
+                if (robot.directions.length > 0) {
+                    robotDestinationGroup.position.x = robot.directions[0].x - this.mapWidth / 2;
+                    robotDestinationGroup.position.z = robot.directions[0].y - this.mapHeight / 2;
+                } else {
+                    robotDestinationGroup.visible = false;
+                }
+                scene.add(robotDestinationGroup);
+                robotDestinationGroups[robot.id - 1] = robotDestinationGroup;
+
+                const arrowMesh = new THREE.Mesh(destinationGeometry, sensorMaterial);
+                arrowMesh.rotation.x = Math.PI;
+                arrowMesh.position.y = 1.5;
+                robotDestinationGroup.add(arrowMesh);
             }
 
             // Map renderer loop

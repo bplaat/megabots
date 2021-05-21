@@ -33,6 +33,9 @@
                                 Drive to: {{ direction.x }} x {{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
                             </li>
                         </ul>
+                        <ul v-else>
+                            <li><i>Waiting for new direction</i></li>
+                        </u>
                     </li>
                 </ul>
             </div>

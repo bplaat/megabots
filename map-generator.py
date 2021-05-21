@@ -14,8 +14,8 @@ TILE_WALL = 3
 # https://rosettacode.org/wiki/Maze_generation#Python
 def makeMaze(w, h):
     vis = [[0] * w + [1] for _ in range(h)] + [[1] * (w + 1)]
-    ver = [["|  "] * w + ['|'] for _ in range(h)] + [[]]
-    hor = [["+--"] * w + ['+'] for _ in range(h + 1)]
+    ver = [["| "] * w + ['|'] for _ in range(h)] + [[]]
+    hor = [["+-"] * w + ['+'] for _ in range(h + 1)]
 
     def walk(x, y):
         vis[y][x] = 1
@@ -24,8 +24,8 @@ def makeMaze(w, h):
         random.shuffle(d)
         for (xx, yy) in d:
             if vis[yy][xx]: continue
-            if xx == x: hor[max(y, yy)][x] = "+  "
-            if yy == y: ver[y][max(x, xx)] = "   "
+            if xx == x: hor[max(y, yy)][x] = "+ "
+            if yy == y: ver[y][max(x, xx)] = "  "
             walk(xx, yy)
 
     walk(random.randrange(w), random.randrange(h))
@@ -36,8 +36,8 @@ def makeMaze(w, h):
     return s
 
 # Map generator script
-mapWidth = len(sys.argv) >= 2 and int(sys.argv[1]) or 16
-mapHeight = len(sys.argv) >= 2 and int(sys.argv[2]) or 16
+mapWidth = len(sys.argv) >= 2 and min(int(sys.argv[1]), 64) or 16
+mapHeight = len(sys.argv) >= 2 and min(int(sys.argv[2]), 64) or 16
 mapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
 
 for y in range(mapHeight):
@@ -50,7 +50,6 @@ for y in range(mapHeight):
 # Generate random maze and copy into map data
 maze = makeMaze(32, 32)
 lines = maze.split('\n')
-print("Maze line length: " + str(len(lines[0])))
 for y in range(2, mapHeight - 2):
     for x in range(2, mapWidth - 2):
         mapData[y * mapWidth + x] = lines[y][x] == " " and TILE_FLOOR or TILE_CHEST
