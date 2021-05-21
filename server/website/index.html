@@ -9,29 +9,39 @@
     <script src="/js/vue.min.js"></script>
     <script src="/js/three.min.js"></script>
     <script src="/js/OrbitControls.min.js"></script>
+    <script src="/js/stats.min.js"></script>
 </head>
 <body>
-    <div id="app">
-        <h1>MegaBots</h1>
-        <p>{{ connected ? 'Connected with the websockets server' : 'Disconnected from the websockets server'}}</p>
-
-        <h2>Robots:</h2>
-        <ul>
-            <li v-for="robot in robots" :key="robot.id">
-                <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x }}x{{ robot.y }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
-                <ul v-if="robot.directions.length > 0">
-                    <li v-for="direction, index in robot.directions">
-                        Drive to: {{ direction.x }}x{{ direction.y }} <b v-if="index == 0">CURRENT</b>
-                    </li>
-                </ul>
-            </li>
-        </ul>
-    </div>
-
-    <h2>Live map:</h2>
     <canvas id="canvas"></canvas>
 
-    <p>Made by <a href="https://bastiaan.ml/" target="_blank">Bastiaan van der Plaat</a>, Eki Pratama, Maarten Brilleman en Rowdey Goos</p>
+    <div id="app">
+        <h1 class="logo"><a href="/">MegaBots</a></h1>
+        <p class="connected">{{ connected ? 'Connected with websockets server' : 'Disconnected from websockets server'}}</p>
+
+        <div class="robots box">
+            <p><b>Robots</b></p>
+            <ul>
+                <li v-for="robot in robots" :key="robot.id">
+                    <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x }}x{{ robot.y }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
+                    <ul v-if="robot.directions.length > 0">
+                        <li v-for="direction, index in robot.directions">
+                            Drive to: {{ direction.x }}x{{ direction.y }} <b v-if="index == 0">CURRENT</b>
+                        </li>
+                    </ul>
+                </li>
+            </ul>
+        </div>
+
+        <div class="controls box">
+            <p><b>Controls</b></p>
+            <p>
+                {{ running ? 'Running' : 'Stopped' }}
+                <button @click="running = !running">{{ running ? 'Stop' : 'Start' }}</button>
+            </p>
+        </div>
+
+        <p class="footer">Made by <a href="https://bastiaan.ml/" target="_blank">Bastiaan van der Plaat</a>, Eki Pratama, Maarten Brilleman en Rowdey Goos</p>
+    </div>
 
     <script src="/js/script.js"></script>
 </body>

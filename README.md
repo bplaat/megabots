@@ -23,10 +23,11 @@ All message are encoded in JSON and send over an plain WebSocket connection with
 < robot 3 { connect }
 < robot 4 { connect }
 
-> robot 2 { new_direction or update_direction or cancel_direction }
-< robot 1 { new_direction or update_direction or cancel_direction }
-< robot 3 { new_direction or update_direction or cancel_direction }
-< robot 4 { new_direction or update_direction or cancel_direction }
+> website { start or stop or new_direction or update_direction or cancel_direction }
+< robot 1 { start or stop or new_direction or update_direction or cancel_direction }
+< robot 2 { start or stop or new_direction or update_direction or cancel_direction }
+< robot 3 { start or stop or new_direction or update_direction or cancel_direction }
+< robot 4 { start or stop or new_direction or update_direction or cancel_direction }
 
 loop {
     < robot 1 { tick with robot_id = 1 }

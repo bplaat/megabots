@@ -28,12 +28,15 @@ for (let y = 0; y < MAP_HEIGHT; y++) {
 }
 
 // App
+let ws;
+
 const app = new Vue({
     el: '#app',
 
     data: {
         id: Date.now(),
         connected: false,
+        running: true,
         robots: [
             { id: 1, x: 1, y: 1, color: 0xff0000, directions: [], connected: false },
             { id: 2, x: MAP_WIDTH - 2, y: 1, color: 0x00ff00,directions: [], connected: false },
@@ -42,9 +45,27 @@ const app = new Vue({
         ]
     },
 
+    watch: {
+        running(running) {
+            if (this.connected) {
+                if (running) {
+                    ws.send(JSON.stringify({
+                        type: 'start',
+                        data: {}
+                    }));
+                } else {
+                    ws.send(JSON.stringify({
+                        type: 'stop',
+                        data: {}
+                    }));
+                }
+            }
+        }
+    },
+
     methods: {
         websocketsConnect() {
-            const ws = new WebSocket("ws://127.0.0.1:" + WEBSOCKETS_PORT + "/");
+            ws = new WebSocket("ws://127.0.0.1:" + WEBSOCKETS_PORT + "/");
 
             ws.onopen = () => {
                 ws.send(JSON.stringify({
@@ -81,16 +102,30 @@ const app = new Vue({
         this.websocketsConnect();
 
         // 3D Map Simulation
-        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
-        renderer.setClearColor(0x87CEEB);
-        renderer.setSize(1280, 720);
-
         const scene = new THREE.Scene();
 
-        const camera = new THREE.PerspectiveCamera( 75, 1280 / 720, 0.1, 1000 );
+        const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
         camera.position.y = MAP_WIDTH;
 
+        const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
+        renderer.setClearColor(0x87ceeb);
+        renderer.setSize(window.innerWidth, window.innerHeight);
+
+        window.addEventListener('resize', function () {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+
         const controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+        const stats = new Stats();
+        stats.dom.style.top = '';
+        stats.dom.style.left = '';
+        stats.dom.style.right = '8px';
+        stats.dom.style.bottom = '8px';
+        document.body.appendChild(stats.dom);
 
         // Create map meshes
         const mapMeshes = [];
@@ -161,8 +196,10 @@ const app = new Vue({
 
         // Map renderer loop
         function loop() {
+            stats.begin();
             controls.update();
             renderer.render(scene, camera);
+            stats.end();
             window.requestAnimationFrame(loop);
         }
         loop();
