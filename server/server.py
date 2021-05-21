@@ -1,13 +1,11 @@
-# MegaBots communication server
-import socket
-import json
-import threading
+#!/usr/bin/env python
+
 import asyncio
 import websockets
+import json
 
 # Constants
-SERVER_PORT = 8080
-WEBSOCKETS_PORT = 8082
+WEBSOCKETS_PORT = 8080
 
 MAP_WIDTH = 16
 MAP_HEIGHT = 16
@@ -32,173 +30,239 @@ for y in range(MAP_HEIGHT):
 
 # Robots start in the corners
 robots = [
-    { "id": 1, "x": 1, "y": 1, "directions": [], "connection": None },
-    { "id": 2, "x": MAP_WIDTH - 2, "y": 1, "directions": [], "connection": None },
-    { "id": 3, "x": 1, "y": MAP_HEIGHT - 2, "directions": [], "connection": None },
-    { "id": 4, "x": MAP_WIDTH - 2, "y": MAP_HEIGHT - 2, "directions": [], "connection": None }
+    { "id": 1, "x": 1, "y": 1, "directions": [], "websocket": None },
+    { "id": 2, "x": MAP_WIDTH - 2, "y": 1, "directions": [], "websocket": None },
+    { "id": 3, "x": 1, "y": MAP_HEIGHT - 2, "directions": [], "websocket": None },
+    { "id": 4, "x": MAP_WIDTH - 2, "y": MAP_HEIGHT - 2, "directions": [], "websocket": None }
 ]
 
-# Communications server
-def handleRobotConnectionThread(connection):
-    while data := connection.recv(1024):
-        # Split maybe concated json messages
-        messages = data.decode().split('}{')
-        if len(messages) > 1:
-            for i in range(len(messages)):
-                if i == 0:
-                    messages[i] = messages[i] + '}'
-                elif i == len(messages) - 1:
-                    messages[i] = '{' + messages[i]
-                else:
-                    messages[i] = '{' + messages[i] + '}'
+# Website connections data
+websites = []
 
-        # Read every incomming json message
-        for message in messages:
-            print("[SERVER] Robot message: " + message)
-            message = json.loads(message)
+# Simple log function
+def log(line):
+    print("[SERVER] " + line)
 
-            # Connect message
-            if message["type"] == "connect":
-                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                robot["connection"] = connection
-                print("[SERVER] Robot " + str(robot["id"]) + " is connected")
+# Websocket server
+async def websocketConnection(websocket, path):
+    async for data in websocket:
+        log("Robot message: " + data)
+        message = json.loads(data)
 
-                for otherRobot in robots:
-                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                        # Send robot connect message of this other robot
-                        robot["connection"].send(json.dumps({
-                            "type": "connect",
-                            "data": {
-                                "robot_id": otherRobot["id"]
-                            }
-                        }).encode("utf8"))
+        # Connect message
+        if message["type"] == "connect":
+            robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+            robot["websocket"] = websocket
+            log("Robot " + str(robot["id"]) + " is connected")
 
-                        # Send other robot connect message of this robot
-                        otherRobot["connection"].send(json.dumps({
-                            "type": "connect",
-                            "data": {
-                                "robot_id": robot["id"]
-                            }
-                        }).encode("utf8"))
+            # Send other robot connected messages
+            for otherRobot in robots:
+                if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
+                    # Send robot connect message of this other robot
+                    await websocket.send(json.dumps({
+                        "type": "connect",
+                        "data": {
+                            "robot_id": otherRobot["id"]
+                        }
+                    }))
 
-            # New direction message
-            if message["type"] == "new_direction":
-                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                robot["directions"].append({
-                    "id": message["data"]["direction"]["id"],
-                    "x": message["data"]["direction"]["x"],
-                    "y": message["data"]["direction"]["y"]
-                })
+                    # Send other robot connect message of this robot
+                    await otherRobot["websocket"].send(json.dumps({
+                        "type": "connect",
+                        "data": {
+                            "robot_id": robot["id"]
+                        }
+                    }))
 
-                for otherRobot in robots:
-                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                        otherRobot["connection"].send(json.dumps({
-                            "type": "new_direction",
-                            "data": {
-                                "robot_id": robot["id"],
-                                "direction": {
-                                    "id": message["data"]["direction"]["id"],
-                                    "x": message["data"]["direction"]["x"],
-                                    "y": message["data"]["direction"]["y"]
-                                }
-                            }
-                        }).encode("utf8"))
+            # Send other websites connected messages
+            for website in websites:
+                # Send robot connect message of this website
+                await websocket.send(json.dumps({
+                    "type": "website_connect",
+                    "data": {
+                        "website_id": website["id"]
+                    }
+                }))
 
-            # Update direction message
-            if message["type"] == "update_direction":
-                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                direction = next((direction for direction in robot["directions"] if direction["id"] == message["data"]["direction"]["id"]), None)
-                direction["x"] = message["data"]["direction"]["x"]
-                direction["y"] = message["data"]["direction"]["y"]
+                # Send this website connect message of this robot
+                await website["websocket"].send(json.dumps({
+                    "type": "connect",
+                    "data": {
+                        "robot_id": robot["id"]
+                    }
+                }))
 
-                for otherRobot in robots:
-                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                        otherRobot["connection"].send(json.dumps({
-                            "type": "update_direction",
-                            "data": {
-                                "robot_id": robot["id"],
-                                "direction": {
-                                    "id": message["data"]["direction"]["id"],
-                                    "x": message["data"]["direction"]["x"],
-                                    "y": message["data"]["direction"]["y"]
-                                }
-                            }
-                        }).encode("utf8"))
+        # Website connect message
+        if message["type"] == "website_connect":
+            website =  {
+                "id": message["data"]["website_id"],
+                "websocket": websocket
+            }
+            websites.append(website)
+            log("Website " + str(website["id"]) + " is connected")
 
-            # Cancel direction message
-            if message["type"] == "cancel_direction":
-                robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                for i, direction in enumerate(robot["directions"]):
-                    if direction["id"] == message["data"]["direction"]["id"]:
-                        del robot["directions"][i]
-                        break
+            # Send robot connected messages
+            for robot in robots:
+                if robot["websocket"] != None:
+                    # Send website connect message of this robot
+                    await websocket.send(json.dumps({
+                        "type": "connect",
+                        "data": {
+                            "robot_id": robot["id"]
+                        }
+                    }))
 
-                for otherRobot in robots:
-                    if otherRobot["connection"] != None and otherRobot["id"] != robot["id"]:
-                        otherRobot["connection"].send(json.dumps({
-                            "type": "cancel_direction",
-                            "data": {
-                                "robot_id": robot["id"],
-                                "direction": {
-                                    "id": message["data"]["direction"]["id"]
-                                }
-                            }
-                        }).encode("utf8"))
+                    # Send robot connect message of this website
+                    await robot["websocket"].send(json.dumps({
+                        "type": "website_connect",
+                        "data": {
+                            "website_id": website["id"]
+                        }
+                    }))
 
-            # Tick done message
-            if message["type"] == "tick_done":
-                pass
+            # Send other websites connected messages
+            for otherWebsite in websites:
+                if otherWebsite["id"] != website["id"]:
+                    # Send website connect message of this website
+                    await websocket.send(json.dumps({
+                        "type": "website_connect",
+                        "data": {
+                            "website_id": otherWebsite["id"]
+                        }
+                    }))
+
+                    # Send this website connect message of this other website
+                    await otherWebsite["websocket"].send(json.dumps({
+                        "type": "website_connect",
+                        "data": {
+                            "website_id": website["id"]
+                        }
+                    }))
+
+        # # New direction message
+        # if message["type"] == "new_direction":
+        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+        #     robot["directions"].append({
+        #         "id": message["data"]["direction"]["id"],
+        #         "x": message["data"]["direction"]["x"],
+        #         "y": message["data"]["direction"]["y"]
+        #     })
+        #     log("New direction for Robot " + str(robot["id"]))
+
+        #     for otherRobot in robots:
+        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
+        #             await otherRobot["websocket"].send(json.dumps({
+        #                 "type": "new_direction",
+        #                 "data": {
+        #                     "robot_id": robot["id"],
+        #                     "direction": {
+        #                         "id": message["data"]["direction"]["id"],
+        #                         "x": message["data"]["direction"]["x"],
+        #                         "y": message["data"]["direction"]["y"]
+        #                     }
+        #                 }
+        #             }))
+
+        # # Update direction message
+        # if message["type"] == "update_direction":
+        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+        #     direction = next((direction for direction in robot["directions"] if direction["id"] == message["data"]["direction"]["id"]), None)
+        #     direction["x"] = message["data"]["direction"]["x"]
+        #     direction["y"] = message["data"]["direction"]["y"]
+        #     log("Update direction for Robot " + str(robot["id"]))
+
+        #     for otherRobot in robots:
+        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
+        #             await otherRobot["websocket"].send(json.dumps({
+        #                 "type": "update_direction",
+        #                 "data": {
+        #                     "robot_id": robot["id"],
+        #                     "direction": {
+        #                         "id": message["data"]["direction"]["id"],
+        #                         "x": message["data"]["direction"]["x"],
+        #                         "y": message["data"]["direction"]["y"]
+        #                     }
+        #                 }
+        #             }))
+
+        # # Cancel direction message
+        # if message["type"] == "cancel_direction":
+        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+        #     for i, direction in enumerate(robot["directions"]):
+        #         if direction["id"] == message["data"]["direction"]["id"]:
+        #             del robot["directions"][i]
+        #             break
+        #     log("Cancel direction for Robot " + str(robot["id"]))
+
+        #     for otherRobot in robots:
+        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
+        #             await otherRobot["websocket"].send(json.dumps({
+        #                 "type": "cancel_direction",
+        #                 "data": {
+        #                     "robot_id": robot["id"],
+        #                     "direction": {
+        #                         "id": message["data"]["direction"]["id"]
+        #                     }
+        #                 }
+        #             }))
 
     # Disconnect message
     for robot in robots:
-        if robot["connection"] == connection:
-            print("[SERVER] Robot " + str(robot["id"]) + " is disconnected")
-            robot["connection"] = None
+        if robot["websocket"] == websocket:
+            log("Robot " + str(robot["id"]) + " is disconnected")
+            robot["websocket"] = None
 
             for robot in robots:
-                if robot["connection"] != None:
-                    robot["connection"].send(json.dumps({
+                if robot["websocket"] != None:
+                    await robot["websocket"].send(json.dumps({
                         "type": "disconnect",
                         "data": {
                             "robot_id": robot["id"]
                         }
-                    }).encode("utf8"))
+                    }))
+
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "disconnect",
+                    "data": {
+                        "robot_id": robot["id"]
+                    }
+                }))
+
             break
 
-# Start communication server
-def communicationServerThread():
-    with socket.create_server(("127.0.0.1", SERVER_PORT)) as server:
-        print("[SERVER] Communication server is listening at 127.0.0.1:" + str(SERVER_PORT))
-        server.listen()
-        while True:
-            connection, address = server.accept()
-            connectionThread = threading.Thread(target = handleRobotConnectionThread, args = (connection,))
-            connectionThread.start()
-communicationThread = threading.Thread(target = communicationServerThread)
-communicationThread.start()
+    for website in websites:
+        if website["websocket"] == websocket:
+            website_id = website["id"]
+            log("Website " + str(website_id) + " is disconnected")
 
-# Start websockets server
-async def websocketsConnection(websocket, uri):
-    print("[SERVER] Websockets connected")
+            for i, website in enumerate(websites):
+                if website["id"] == website_id:
+                    del websites[i]
+                    break
 
-    # Send connected message of all robots that all ready are connected
-    for robot in robots:
-        if robot["connection"] != None:
-            await websocket.send(json.dumps({
-                "type": "connect",
-                "data": {
-                    "robot_id": robot["id"]
-                }
-            }))
+            for robot in robots:
+                if robot["websocket"] != None:
+                    await robot["websocket"].send(json.dumps({
+                        "type": "website_disconnect",
+                        "data": {
+                            "website_id": website_id
+                        }
+                    }))
 
-    while True:
-        try:
-            data = await websocket.recv()
-            print("[SERVER] Websockets message: " + data)
-        except:
-            print("[SERVER] Websockets disconnected")
-            return
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "website_disconnect",
+                    "data": {
+                        "website_id": website_id
+                    }
+                }))
 
-server = websockets.serve(websocketsConnection, "127.0.0.1", WEBSOCKETS_PORT)
-asyncio.get_event_loop().run_until_complete(server)
-asyncio.get_event_loop().run_forever()
+            break
+
+async def websocketsServer():
+    log("Websockets server is listening at ws://127.0.0.1:" + str(WEBSOCKETS_PORT))
+    async with websockets.serve(websocketConnection, "127.0.0.1", WEBSOCKETS_PORT):
+        await asyncio.Future()
+
+asyncio.run(websocketsServer())

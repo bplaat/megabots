@@ -1,5 +1,5 @@
 // Constants
-const WEBSOCKETS_PORT = 8082;
+const WEBSOCKETS_PORT = 8080;
 
 const MAP_WIDTH = 16;
 const MAP_HEIGHT = 16;
@@ -32,8 +32,8 @@ const app = new Vue({
     el: '#app',
 
     data: {
+        id: Date.now(),
         connected: false,
-
         robots: [
             { id: 1, x: 1, y: 1, color: 0xff0000, directions: [], connected: false },
             { id: 2, x: MAP_WIDTH - 2, y: 1, color: 0x00ff00,directions: [], connected: false },
@@ -47,6 +47,12 @@ const app = new Vue({
             const ws = new WebSocket("ws://127.0.0.1:" + WEBSOCKETS_PORT + "/");
 
             ws.onopen = () => {
+                ws.send(JSON.stringify({
+                    type: 'website_connect',
+                    data: {
+                        website_id: this.id
+                    }
+                }));
                 this.connected = true;
             };
 
@@ -118,19 +124,39 @@ const app = new Vue({
         }
 
         // Create robot meshes
-        const robotsMeshes = [];
+        const robotsGroups = [];
 
-        const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.99, 32);
+        const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.999, 32);
         const robotTexure = new THREE.TextureLoader().load('/images/robot.jpg');
+        const sensorGeometry = new THREE.SphereGeometry(0.05, 32, 32);
 
         for (const robot of this.robots) {
-            const robotMaterial = new THREE.MeshBasicMaterial({ color: robot.color, map: robotTexure });
-            const robotMesh = new THREE.Mesh(robotGeometry, robotMaterial);
-            robotMesh.position.x = robot.x - MAP_WIDTH / 2;
-            robotMesh.position.z = robot.y - MAP_HEIGHT / 2;
+            const robotGroup = new THREE.Group();
+            robotGroup.position.x = robot.x - MAP_WIDTH / 2;
+            robotGroup.position.z = robot.y - MAP_HEIGHT / 2;
+            scene.add(robotGroup);
+            robotsGroups[robot.id - 1] = robotGroup;
 
-            robotsMeshes[robot.id - 1] = robotMesh;
-            scene.add(robotMesh);
+            const robotMaterial = new THREE.MeshBasicMaterial({ color: robot.color, map: robotTexure });
+            robotGroup.add(new THREE.Mesh(robotGeometry, robotMaterial));
+
+            const sensorMaterial = new THREE.MeshBasicMaterial({ color: robot.color });
+
+            const sensorMesh1 = new THREE.Mesh(sensorGeometry, sensorMaterial);
+            sensorMesh1.position.x = -0.3;
+            robotGroup.add(sensorMesh1);
+
+            const sensorMesh2 = new THREE.Mesh(sensorGeometry, sensorMaterial);
+            sensorMesh2.position.x = 0.3;
+            robotGroup.add(sensorMesh2);
+
+            const sensorMesh3 = new THREE.Mesh(sensorGeometry, sensorMaterial);
+            sensorMesh3.position.z = -0.3;
+            robotGroup.add(sensorMesh3);
+
+            const sensorMesh4 = new THREE.Mesh(sensorGeometry, sensorMaterial);
+            sensorMesh4.position.z = 0.3;
+            robotGroup.add(sensorMesh4);
         }
 
         // Map renderer loop

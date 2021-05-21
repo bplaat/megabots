@@ -14,7 +14,9 @@ Some mega bots living in a grid
     ./test.sh
     ```
 
-## Protocol idea:
+## Protocol:
+All message are encoded in JSON and send over an plain WebSocket connection with the centeral websockets server.
+
 ```
 > robot 1 { connect }
 < robot 2 { connect }
@@ -71,7 +73,7 @@ loop {
     "data": {
         "robot_id": 1,
         "direction": {
-            "id": 1621529804034, // time in ms (for random id)
+            "id": 1621529804034,
             "x": 4,
             "y": 5
         }
@@ -113,7 +115,6 @@ loop {
 ```
 
 ### Tick done message
-Robot 1 -> Server
 ```python
 TILE_UNKOWN = 0
 TILE_NORMAL = 1
@@ -137,21 +138,12 @@ TILE_WALL = 3
 }
 ```
 
-### Tick done message
-Server -> Other robots
+### Website connect message
 ```json
-{
-    "type": "tick_done",
-    "data": {
-        "robot_id": 1,
-        "robot_x":  4,
-        "robot_y":  4,
-        "map": [
-            { "x": 3, "y": 4, "type": 1 },
-            { "x": 5, "y": 4, "type": 3 },
-            { "x": 4, "y": 3, "type": 1 },
-            { "x": 4, "y": 5, "type": 3 }
-        ]
-    }
-}
+{ "type": "website_connect", "data": { "website_id": 1621576963658 } }
+```
+
+### Website disconnect message
+```json
+{ "type": "website_disconnect", "data": { "website_id": 1621576963658 } }
 ```
