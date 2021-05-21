@@ -9,6 +9,7 @@
     <script src="/js/vue.min.js"></script>
     <script src="/js/three.min.js"></script>
     <script src="/js/OrbitControls.min.js"></script>
+    <script src="/js/tween.min.js"></script>
     <script src="/js/stats.min.js"></script>
 </head>
 <body>
@@ -29,7 +30,7 @@
                         <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
                         <ul v-if="robot.directions.length > 0">
                             <li v-for="direction, index in robot.directions">
-                                Drive to: {{ direction.x }}x{{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
+                                Drive to: {{ direction.x }} x {{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
                             </li>
                         </ul>
                     </li>

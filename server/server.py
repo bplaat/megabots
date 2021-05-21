@@ -19,11 +19,11 @@ TILE_CHEST = 2
 TILE_WALL = 3
 
 # Server tick information
-tickType = TICK_AUTO
+tickType = TICK_MANUAL
 tickSpeed = 500
 currentRobotIndex = 0
 
-# Init square map with robots in corners and all around wall
+# Init square map with robots in corners and all around wall rest unkown
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
 for y in range(MAP_HEIGHT):
     for x in range(MAP_WIDTH):
@@ -54,7 +54,7 @@ def log(line):
 
 # Websocket server
 async def websocketConnection(websocket, path):
-    global tickType, tickSpeed
+    global tickType, tickSpeed, currentRobotIndex
 
     async for data in websocket:
         log("Client message: " + data)
@@ -216,6 +216,21 @@ async def websocketConnection(websocket, path):
                     "data": messageData
                 }))
 
+        # World tick message
+        if message["type"] == "world_tick":
+            while currentRobotIndex < len(robots):
+                robot = robots[currentRobotIndex]
+                log("Tick for Robot " + str(robot["id"]))
+
+                await robot["websocket"].send(json.dumps({
+                    "type": "robot_tick",
+                    "data": {}
+                }))
+
+                currentRobotIndex += 1
+
+            currentRobotIndex = 0
+
         # New direction message
         if message["type"] == "new_direction":
             robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
@@ -285,15 +300,55 @@ async def websocketConnection(websocket, path):
                     }
                 }))
 
+        # Tick done message
+        if message["type"] == "robot_tick_done":
+            robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+            robot["x"] = message["data"]["robot_x"]
+            robot["y"] = message["data"]["robot_y"]
+
+            mapUpdates = []
+            for mapUpdate in message["data"]["map"]:
+                map[mapUpdate["y"] * MAP_HEIGHT + mapUpdate["x"]] = mapUpdate["type"]
+                mapUpdates.append({
+                    "x": mapUpdate["x"],
+                    "y": mapUpdate["y"],
+                    "type": mapUpdate["type"]
+                })
+
+            log("Tick done from Robot " + str(robot["id"]))
+
+            for otherRobot in robots:
+                if otherRobot["websocket"] != None:
+                    await otherRobot["websocket"].send(json.dumps({
+                        "type": "robot_tick_done",
+                        "data": {
+                            "robot_id": robot["id"],
+                            "robot_x": robot["x"],
+                            "robot_y": robot["y"],
+                            "map": mapUpdates
+                        }
+                    }))
+
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "robot_tick_done",
+                    "data": {
+                        "robot_id": robot["id"],
+                        "robot_x": robot["x"],
+                        "robot_y": robot["y"],
+                        "map": mapUpdates
+                    }
+                }))
+
     # Disconnect message
     for robot in robots:
         if robot["websocket"] == websocket:
             log("Robot " + str(robot["id"]) + " is disconnected")
             robot["websocket"] = None
 
-            for robot in robots:
-                if robot["websocket"] != None:
-                    await robot["websocket"].send(json.dumps({
+            for otherRobot in robots:
+                if otherRobot["websocket"] != None:
+                    await otherRobot["websocket"].send(json.dumps({
                         "type": "robot_disconnect",
                         "data": {
                             "robot_id": robot["id"]

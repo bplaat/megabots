@@ -12,7 +12,7 @@ const TILE_FLOOR = 1;
 const TILE_CHEST = 2;
 const TILE_WALL = 3;
 
-// Map
+// Init square map with robots in corners and all around wall rest unkown
 const map = new Array(MAP_HEIGHT * MAP_WIDTH);
 for (let y = 0; y < MAP_HEIGHT; y++) {
     for (let x = 0; x < MAP_WIDTH; x++) {
@@ -178,6 +178,7 @@ const app = new Vue({
                     for (const mapUpdate of message.data.map) {
                         this.worldUpdateTile(mapUpdate.x, mapUpdate.y, mapUpdate.type);
                     }
+
                     this.worldMoveRobot(message.data.robot_id, message.data.robot_x, message.data.robot_y);
                 }
             };
@@ -283,14 +284,28 @@ const app = new Vue({
 
         worldMoveRobot(robotId, x, y) {
             const robot = this.robots.find(robot => robot.id == robotId);
-            robot.x =x;
-            robot.y = y;
 
             if (robotsGroups.length > 0) {
+                if (robotsGroups[robot.id - 1].visible) {
+                    const coords = { x: robot.x, y: robot.y }
+                    const tween = new TWEEN.Tween(coords)
+                        .to({ x: x, y: y}, this.tickSpeed)
+                        .easing(TWEEN.Easing.Quadratic.Out)
+                        .onUpdate(() => {
+                            robotsGroups[robot.id - 1].position.x = coords.x - MAP_WIDTH / 2;
+                            robotsGroups[robot.id - 1].position.z = coords.y - MAP_HEIGHT / 2;
+                        })
+                        .start();
+                } else {
+                    robotsGroups[robot.id - 1].position.x = x - MAP_WIDTH / 2;
+                    robotsGroups[robot.id - 1].position.z = y - MAP_HEIGHT / 2;
+                }
+
                 robotsGroups[robot.id - 1].visible = true;
-                robotsGroups[robot.id - 1].position.x = x - MAP_WIDTH / 2;
-                robotsGroups[robot.id - 1].position.z = y - MAP_HEIGHT / 2;
             }
+
+            robot.x = x;
+            robot.y = y;
         },
 
         worldSimulation() {
@@ -391,14 +406,15 @@ const app = new Vue({
             }
 
             // Map renderer loop
-            function loop() {
+            function loop(delta) {
                 stats.begin();
                 controls.update();
+                TWEEN.update(delta)
                 renderer.render(scene, camera);
                 stats.end();
                 window.requestAnimationFrame(loop);
             }
-            loop();
+            window.requestAnimationFrame(loop);
         }
     },
 
