@@ -23,11 +23,11 @@ All message are encoded in JSON and send over an plain WebSocket connection with
 < robot 3 { connect }
 < robot 4 { connect }
 
-> website { start or stop or new_direction or update_direction or cancel_direction }
-< robot 1 { start or stop or new_direction or update_direction or cancel_direction }
-< robot 2 { start or stop or new_direction or update_direction or cancel_direction }
-< robot 3 { start or stop or new_direction or update_direction or cancel_direction }
-< robot 4 { start or stop or new_direction or update_direction or cancel_direction }
+> website { start or stop or new_direction or cancel_direction }
+< robot 1 { start or stop or new_direction or cancel_direction }
+< robot 2 { start or stop or new_direction or cancel_direction }
+< robot 3 { start or stop or new_direction or cancel_direction }
+< robot 4 { start or stop or new_direction or cancel_direction }
 
 loop {
     < robot 1 { tick with robot_id = 1 }
@@ -49,7 +49,26 @@ loop {
 
 ### Connect message
 ```json
-{ "type": "connect", "data": { "robot_id": 1 } }
+{
+    "type": "connect",
+    "data": {
+        "robot_id": 1,
+        "robot_x": 3,
+        "robot_y": 3,
+        "directions": [
+            {
+                "id": 1621529804034,
+                "x": 4,
+                "y": 5
+            },
+            {
+                "id": 1621529804035,
+                "x": 1,
+                "y": 1
+            }
+        ]
+    }
+}
 ```
 
 ### Disconnect message
@@ -82,21 +101,6 @@ loop {
 }
 ```
 
-### Update direction message
-```json
-{
-    "type": "update_direction",
-    "data": {
-        "robot_id": 1,
-        "direction": {
-            "id": 1621529804034,
-            "x": 4,
-            "y": 5
-        }
-    }
-}
-```
-
 ### Cancel direction message
 ```json
 {
@@ -118,7 +122,7 @@ loop {
 ### Tick done message
 ```python
 TILE_UNKOWN = 0
-TILE_NORMAL = 1
+TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
 ```

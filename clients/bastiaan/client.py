@@ -12,8 +12,9 @@ ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
 
 MAP_WIDTH = 16
 MAP_HEIGHT = 16
+
 TILE_UNKOWN = 0
-TILE_NORMAL = 1
+TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
 
@@ -32,7 +33,7 @@ for y in range(MAP_HEIGHT):
             (x == 1 and y == MAP_HEIGHT - 2) or
             (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
         ):
-            map[y * MAP_WIDTH + x] = TILE_NORMAL
+            map[y * MAP_WIDTH + x] = TILE_FLOOR
 
 # Robots start in the corners
 robots = [
@@ -52,13 +53,16 @@ async def websocketConnection():
     try:
         async with websockets.connect("ws://127.0.0.1:" + str(WEBSOCKETS_PORT)) as websocket:
             # Send connect message
+            robot = next((robot for robot in robots if robot["id"] == ROBOT_ID), None)
             await websocket.send(json.dumps({
                 "type": "connect",
                 "data": {
-                    "robot_id": ROBOT_ID
+                    "robot_id": ROBOT_ID,
+                    "robot_x": robot["x"],
+                    "robot_y": robot["y"],
+                    "directions": []
                 }
             }))
-            robot = next((robot for robot in robots if robot["id"] == ROBOT_ID), None)
             robot["connected"] = True
             log("Robot " + str(ROBOT_ID) + " connected")
 
@@ -70,6 +74,15 @@ async def websocketConnection():
                 # Connect message
                 if message["type"] == "connect":
                     otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+                    otherRobot["x"] = message["data"]["robot_x"]
+                    otherRobot["y"] = message["data"]["robot_y"]
+                    otherRobot["directions"].clear()
+                    for direction in message["data"]["directions"]:
+                        otherRobot["directions"].append({
+                            "id": direction["id"],
+                            "x": direction["x"],
+                            "y": direction["y"]
+                        })
                     otherRobot["connected"] = True
                     log("Robot " + str(otherRobot["id"]) + " is connected")
 
@@ -98,14 +111,6 @@ async def websocketConnection():
                         "y": message["data"]["direction"]["y"]
                     })
                     log("New direction for Robot " + str(otherRobot["id"]))
-
-                # Update direction message
-                if message["type"] == "update_direction":
-                    otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                    direction = next((direction for direction in otherRobot["directions"] if direction["id"] == message["data"]["direction"]["id"]), None)
-                    direction["x"] = message["data"]["direction"]["x"]
-                    direction["y"] = message["data"]["direction"]["y"]
-                    log("Update direction for robot " + str(otherRobot["id"]))
 
                 # Cancel direction message
                 if message["type"] == "cancel_direction":

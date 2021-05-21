@@ -9,10 +9,14 @@ WEBSOCKETS_PORT = 8080
 
 MAP_WIDTH = 16
 MAP_HEIGHT = 16
+
 TILE_UNKOWN = 0
-TILE_NORMAL = 1
+TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
+
+# Server running
+running = True
 
 # Init square map with robots in corners and all around wall
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
@@ -26,14 +30,14 @@ for y in range(MAP_HEIGHT):
             (x == 1 and y == MAP_HEIGHT - 2) or
             (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
         ):
-            map[y * MAP_WIDTH + x] = TILE_NORMAL
+            map[y * MAP_WIDTH + x] = TILE_FLOOR
 
 # Robots start in the corners
 robots = [
-    { "id": 1, "x": 1, "y": 1, "directions": [], "websocket": None },
-    { "id": 2, "x": MAP_WIDTH - 2, "y": 1, "directions": [], "websocket": None },
-    { "id": 3, "x": 1, "y": MAP_HEIGHT - 2, "directions": [], "websocket": None },
-    { "id": 4, "x": MAP_WIDTH - 2, "y": MAP_HEIGHT - 2, "directions": [], "websocket": None }
+    { "id": 1, "x": None, "y": None, "directions": [], "websocket": None },
+    { "id": 2, "x": None, "y": None, "directions": [], "websocket": None },
+    { "id": 3, "x": None, "y": None, "directions": [], "websocket": None },
+    { "id": 4, "x": None, "y": None, "directions": [], "websocket": None }
 ]
 
 # Website connections data
@@ -46,12 +50,21 @@ def log(line):
 # Websocket server
 async def websocketConnection(websocket, path):
     async for data in websocket:
-        log("Robot message: " + data)
+        log("Client message: " + data)
         message = json.loads(data)
 
         # Connect message
         if message["type"] == "connect":
             robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+            robot["x"] = message["data"]["robot_x"]
+            robot["y"] = message["data"]["robot_y"]
+            robot["directions"].clear()
+            for direction in message["data"]["directions"]:
+                robot["directions"].append({
+                    "id": direction["id"],
+                    "x": direction["x"],
+                    "y": direction["y"]
+                })
             robot["websocket"] = websocket
             log("Robot " + str(robot["id"]) + " is connected")
 
@@ -62,7 +75,10 @@ async def websocketConnection(websocket, path):
                     await websocket.send(json.dumps({
                         "type": "connect",
                         "data": {
-                            "robot_id": otherRobot["id"]
+                            "robot_id": otherRobot["id"],
+                            "robot_x": otherRobot["x"],
+                            "robot_y": otherRobot["y"],
+                            "directions": otherRobot["directions"]
                         }
                     }))
 
@@ -70,7 +86,10 @@ async def websocketConnection(websocket, path):
                     await otherRobot["websocket"].send(json.dumps({
                         "type": "connect",
                         "data": {
-                            "robot_id": robot["id"]
+                            "robot_id": robot["id"],
+                            "robot_x": robot["x"],
+                            "robot_y": robot["y"],
+                            "directions": robot["directions"]
                         }
                     }))
 
@@ -88,7 +107,10 @@ async def websocketConnection(websocket, path):
                 await website["websocket"].send(json.dumps({
                     "type": "connect",
                     "data": {
-                        "robot_id": robot["id"]
+                        "robot_id": robot["id"],
+                        "robot_x": robot["x"],
+                        "robot_y": robot["y"],
+                        "directions": robot["directions"]
                     }
                 }))
 
@@ -108,7 +130,10 @@ async def websocketConnection(websocket, path):
                     await websocket.send(json.dumps({
                         "type": "connect",
                         "data": {
-                            "robot_id": robot["id"]
+                            "robot_id": robot["id"],
+                            "robot_x": robot["x"],
+                            "robot_y": robot["y"],
+                            "directions": robot["directions"]
                         }
                     }))
 
@@ -139,72 +164,108 @@ async def websocketConnection(websocket, path):
                         }
                     }))
 
-        # # New direction message
-        # if message["type"] == "new_direction":
-        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-        #     robot["directions"].append({
-        #         "id": message["data"]["direction"]["id"],
-        #         "x": message["data"]["direction"]["x"],
-        #         "y": message["data"]["direction"]["y"]
-        #     })
-        #     log("New direction for Robot " + str(robot["id"]))
+        # Start message
+        if message["type"] == "start":
+            running = True
 
-        #     for otherRobot in robots:
-        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
-        #             await otherRobot["websocket"].send(json.dumps({
-        #                 "type": "new_direction",
-        #                 "data": {
-        #                     "robot_id": robot["id"],
-        #                     "direction": {
-        #                         "id": message["data"]["direction"]["id"],
-        #                         "x": message["data"]["direction"]["x"],
-        #                         "y": message["data"]["direction"]["y"]
-        #                     }
-        #                 }
-        #             }))
+            for robot in robots:
+                if robot["websocket"] != None:
+                    await robot["websocket"].send(json.dumps({
+                        "type": "start",
+                        "data": {}
+                    }))
 
-        # # Update direction message
-        # if message["type"] == "update_direction":
-        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-        #     direction = next((direction for direction in robot["directions"] if direction["id"] == message["data"]["direction"]["id"]), None)
-        #     direction["x"] = message["data"]["direction"]["x"]
-        #     direction["y"] = message["data"]["direction"]["y"]
-        #     log("Update direction for Robot " + str(robot["id"]))
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "start",
+                    "data": {}
+                }))
 
-        #     for otherRobot in robots:
-        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
-        #             await otherRobot["websocket"].send(json.dumps({
-        #                 "type": "update_direction",
-        #                 "data": {
-        #                     "robot_id": robot["id"],
-        #                     "direction": {
-        #                         "id": message["data"]["direction"]["id"],
-        #                         "x": message["data"]["direction"]["x"],
-        #                         "y": message["data"]["direction"]["y"]
-        #                     }
-        #                 }
-        #             }))
+        # Stop message
+        if message["type"] == "stop":
+            running = False
 
-        # # Cancel direction message
-        # if message["type"] == "cancel_direction":
-        #     robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-        #     for i, direction in enumerate(robot["directions"]):
-        #         if direction["id"] == message["data"]["direction"]["id"]:
-        #             del robot["directions"][i]
-        #             break
-        #     log("Cancel direction for Robot " + str(robot["id"]))
+            for robot in robots:
+                if robot["websocket"] != None:
+                    await robot["websocket"].send(json.dumps({
+                        "type": "stop",
+                        "data": {}
+                    }))
 
-        #     for otherRobot in robots:
-        #         if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
-        #             await otherRobot["websocket"].send(json.dumps({
-        #                 "type": "cancel_direction",
-        #                 "data": {
-        #                     "robot_id": robot["id"],
-        #                     "direction": {
-        #                         "id": message["data"]["direction"]["id"]
-        #                     }
-        #                 }
-        #             }))
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "stop",
+                    "data": {}
+                }))
+
+        # New direction message
+        if message["type"] == "new_direction":
+            robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+            robot["directions"].append({
+                "id": message["data"]["direction"]["id"],
+                "x": message["data"]["direction"]["x"],
+                "y": message["data"]["direction"]["y"]
+            })
+            log("New direction for Robot " + str(robot["id"]))
+
+            for otherRobot in robots:
+                if otherRobot["websocket"] != None:
+                    await otherRobot["websocket"].send(json.dumps({
+                        "type": "new_direction",
+                        "data": {
+                            "robot_id": robot["id"],
+                            "direction": {
+                                "id": message["data"]["direction"]["id"],
+                                "x": message["data"]["direction"]["x"],
+                                "y": message["data"]["direction"]["y"]
+                            }
+                        }
+                    }))
+
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "new_direction",
+                    "data": {
+                        "robot_id": robot["id"],
+                        "direction": {
+                            "id": message["data"]["direction"]["id"],
+                            "x": message["data"]["direction"]["x"],
+                            "y": message["data"]["direction"]["y"]
+                        }
+                    }
+                }))
+
+        # Cancel direction message
+        if message["type"] == "cancel_direction":
+            robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+            for i, direction in enumerate(robot["directions"]):
+                if direction["id"] == message["data"]["direction"]["id"]:
+                    del robot["directions"][i]
+                    break
+            log("Cancel direction for Robot " + str(robot["id"]))
+
+            for otherRobot in robots:
+                if otherRobot["websocket"] != None:
+                    await otherRobot["websocket"].send(json.dumps({
+                        "type": "cancel_direction",
+                        "data": {
+                            "robot_id": robot["id"],
+                            "direction": {
+                                "id": message["data"]["direction"]["id"]
+                            }
+                        }
+                    }))
+
+            for website in websites:
+                await website["websocket"].send(json.dumps({
+                    "type": "cancel_direction",
+                    "data": {
+                        "robot_id": robot["id"],
+                        "direction": {
+                            "id": message["data"]["direction"]["id"]
+                        }
+                    }
+                }))
 
     # Disconnect message
     for robot in robots:
