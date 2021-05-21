@@ -72,6 +72,7 @@ const app = new Vue({
                 if (!isDiscovered) {
                     // Get list off all unkown tiles that are not arounded with chests
                     let unkownTiles = [];
+                    const unkownMap = [];
                     for (let y = 1; y < this.mapHeight - 1; y++) {
                         for (let x = 1; x < this.mapWidth - 1; x++) {
                             if (
@@ -87,38 +88,73 @@ const app = new Vue({
                                 }
 
                                 unkownTiles.push({ x: x, y: y });
+                                unkownMap[y * this.mapWidth + x] = true;
+                            } else {
+                                unkownMap[y * this.mapWidth + x] = false;
                             }
                         }
                     }
 
                     for (const robot of this.robots) {
                         if (robot.directions.length == 0 && unkownTiles.length > 0) {
-                            // Get closest unkown tile
-                            let closestUnkownTile = unkownTiles[0];
-                            for (const unkownTile of unkownTiles) {
-                                if (
-                                    Math.sqrt((unkownTile.x - robot.x) ** 2 + (unkownTile.y - robot.y) ** 2) <
-                                    Math.sqrt((closestUnkownTile.x - robot.x) ** 2 + (closestUnkownTile.y - robot.y) ** 2)
-                                ) {
-                                    closestUnkownTile = unkownTile;
-                                }
-                            }
+                            // A even simpeler version off the path finding
+                            // algorithm to search for the clossed unkown tile
+                            const tileNeighbors = point => {
+                                const neighbors = [];
+                                if (point.x > 0)
+                                    neighbors.push({ "x": point.x - 1, "y": point.y });
+                                if (point.y > 0)
+                                    neighbors.push({ "x": point.x, "y": point.y - 1 });
+                                if (point.x < this.mapWidth - 1)
+                                    neighbors.push({ "x": point.x + 1, "y": point.y });
+                                if (point.y < this.mapHeight - 1)
+                                    neighbors.push({ "x": point.x, "y": point.y + 1 });
+                                return neighbors;
+                            };
 
-                            // Drive robot to closest unkown tile
-                            websocket.send(JSON.stringify({
-                                type: 'new_direction',
-                                data: {
-                                    robot_id: robot.id,
-                                    direction: {
-                                        id: Date.now(),
-                                        x: closestUnkownTile.x,
-                                        y: closestUnkownTile.y
+                            const frontier = [ { x: robot.x, y: robot.y } ];
+                            const cameFrom = [];
+                            while (frontier.length > 0) {
+                                let current = frontier.shift();
+
+                                if (unkownMap[current.y * this.mapWidth + current.x]) {
+                                    // Drive robot to closest unkown tile
+                                    websocket.send(JSON.stringify({
+                                        type: 'new_direction',
+                                        data: {
+                                            robot_id: robot.id,
+                                            direction: {
+                                                id: Date.now(),
+                                                x: current.x,
+                                                y: current.y
+                                            }
+                                        }
+                                    }));
+
+                                    // Remove tile from list
+                                    unkownTiles = unkownTiles.filter(tile => !(tile.x == current.x && tile.y == current.y));
+
+                                    break;
+                                }
+
+                                for (const neighbor of tileNeighbors(current)) {
+                                    let colliding = false;
+                                    for (otherRobot of this.robots) {
+                                        if (otherRobot.x == neighbor.x && otherRobot.y == neighbor.y) {
+                                            colliding = true;
+                                            break;
+                                        }
+                                    }
+
+                                    const tileType = this.mapData[neighbor.y * this.mapWidth + neighbor.x];
+                                    if (!colliding && (tileType == TILE_FLOOR || tileType == TILE_UNKOWN)) {
+                                        if (cameFrom[neighbor.y * this.mapWidth + neighbor.x] == undefined) {
+                                            frontier.push(neighbor);
+                                            cameFrom[neighbor.y * this.mapWidth + neighbor.x] = current;
+                                        }
                                     }
                                 }
-                            }));
-
-                            // Remove tile from list
-                            unkownTiles = unkownTiles.filter(tile => !(tile.x == closestUnkownTile.x && tile.y == closestUnkownTile.y));
+                            }
                         }
                     }
                 }
@@ -507,7 +543,7 @@ const app = new Vue({
             }
 
             // Create robot meshes
-            const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.999, 32);
+            const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.99, 32);
             const robotTexure = new THREE.TextureLoader().load('/images/robot.jpg');
             const sensorGeometry = new THREE.SphereGeometry(0.05, 32, 32);
             const destinationGeometry = new THREE.ConeGeometry( 0.3, 0.5, 32);
