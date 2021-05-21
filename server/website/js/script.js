@@ -4,8 +4,8 @@ const WEBSOCKETS_PORT = 8080;
 const TICK_AUTO = 0;
 const TICK_MANUAL = 1;
 
-const MAP_WIDTH = 16;
-const MAP_HEIGHT = 16;
+const MAP_WIDTH = 24;
+const MAP_HEIGHT = 24;
 
 const TILE_UNKOWN = 0;
 const TILE_FLOOR = 1;
@@ -27,6 +27,11 @@ for (let y = 0; y < MAP_HEIGHT; y++) {
 // App
 let ws, mapMeshesGroup, cubeGeometry, floorGeometry, unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
 const mapMeshes = [], robotsGroups = [];
+
+function rand (min, max) {
+    return Math.floor(Math.random() * (max - min + 1)) + min;
+}
+
 const app = new Vue({
     el: '#app',
 
@@ -77,7 +82,7 @@ const app = new Vue({
 
                 if (!isDiscovered) {
                     // Get list off all unkown tiles
-                    const unkownTiles = [];
+                    let unkownTiles = [];
                     for (let y = 0; y < MAP_HEIGHT; y++) {
                         for (let x = 0; x < MAP_WIDTH; x++) {
                             if (map[y * MAP_WIDTH + x] == TILE_UNKOWN) {
@@ -87,7 +92,7 @@ const app = new Vue({
                     }
 
                     for (const robot of this.robots) {
-                        if (robot.directions.length == 0) {
+                        if (robot.directions.length == 0 && unkownTiles.length > 0) {
                             // Get closest unkown tile
                             let closestUnkownTile = unkownTiles[0];
                             for (const unkownTile of unkownTiles) {
@@ -111,7 +116,28 @@ const app = new Vue({
                                     }
                                 }
                             }));
+
+                            // Remove tile from list
+                            unkownTiles = unkownTiles.filter(tile => !(tile.x == closestUnkownTile.x && tile.y == closestUnkownTile.y));
                         }
+                    }
+                }
+            },
+            Random() {
+                for (const robot of this.robots) {
+                    if (robot.directions.length == 0) {
+                        // Drive robot to closest unkown tile
+                        ws.send(JSON.stringify({
+                            type: 'new_direction',
+                            data: {
+                                robot_id: robot.id,
+                                direction: {
+                                    id: Date.now(),
+                                    x: rand(1, MAP_WIDTH - 2),
+                                    y: rand(1, MAP_HEIGHT - 2)
+                                }
+                            }
+                        }));
                     }
                 }
             }

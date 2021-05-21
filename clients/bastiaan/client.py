@@ -4,14 +4,15 @@ import sys
 import asyncio
 import websockets
 import json
+import numpy
 
 # Constants
 WEBSOCKETS_PORT = 8080
 
 ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
 
-MAP_WIDTH = 16
-MAP_HEIGHT = 16
+MAP_WIDTH = 24
+MAP_HEIGHT = 24
 
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
@@ -149,6 +150,9 @@ async def websocketConnection():
                     map[(old_robot_y + 1) * MAP_WIDTH + old_robot_x] = realMap[(old_robot_y + 1) * MAP_WIDTH + old_robot_x]
 
                     # Calculate fastest path to destination
+                    # Simple ineffienct Breadth First Search Algorithm for more info:
+                    # https://www.redblobgames.com/pathfinding/a-star/introduction.html
+
                     destination = { "x": int(robot["directions"][0]["x"]), "y": int(robot["directions"][0]["y"]) }
 
                     def tileNeighbors(point):
