@@ -1,5 +1,5 @@
 // Constants
-const DEBUG = false;
+const DEBUG = true;
 
 const WEBSOCKETS_PORT = 8080;
 
@@ -268,7 +268,7 @@ const app = new Vue({
         },
 
         cancelDirection(robotId, directionId) {
-            if (ws != undefined) {
+            if (websocket != undefined) {
                 websocket.send(JSON.stringify({
                     type: 'cancel_direction',
                     data: {
@@ -291,7 +291,7 @@ const app = new Vue({
         },
 
         sendFormSubmit() {
-            if (ws != undefined) {
+            if (websocket != undefined) {
                 websocket.send(JSON.stringify({
                     type: 'new_direction',
                     data: {
@@ -307,7 +307,7 @@ const app = new Vue({
         },
 
         pickupFormSubmit() {
-            if (ws != undefined) {
+            if (websocket != undefined) {
                 const directionId = Date.now();
 
                 websocket.send(JSON.stringify({
