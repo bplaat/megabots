@@ -4,7 +4,6 @@ import sys
 import asyncio
 import websockets
 import json
-import numpy
 
 # Constants
 DEBUG = False
@@ -142,20 +141,22 @@ async def websocketConnection():
                 if len(robot["directions"]) > 0:
                     log("Tick")
 
-                    # Robot old position
-                    old_robot_x = robot["x"]
-                    old_robot_y = robot["y"]
-
                     # Read sensors from real map and write back to map
-                    map[old_robot_y * MAP_WIDTH + (old_robot_x - 1)] = realMap[old_robot_y * MAP_WIDTH + (old_robot_x - 1)]
-                    map[old_robot_y * MAP_WIDTH + (old_robot_x + 1)] = realMap[old_robot_y * MAP_WIDTH + (old_robot_x + 1)]
-                    map[(old_robot_y - 1) * MAP_WIDTH + old_robot_x] = realMap[(old_robot_y - 1) * MAP_WIDTH + old_robot_x]
-                    map[(old_robot_y + 1) * MAP_WIDTH + old_robot_x] = realMap[(old_robot_y + 1) * MAP_WIDTH + old_robot_x]
+                    mapUpdates = []
+                    map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] - 1)]
+                    mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] })
+                    map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] + 1)]
+                    mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] })
+                    map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] - 1) * MAP_WIDTH + robot["x"]]
+                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] })
+                    map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] + 1) * MAP_WIDTH + robot["x"]]
+                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] })
 
                     # Calculate fastest path to destination
                     # Simple ineffienct Breadth First Search Algorithm for more info:
                     # https://www.redblobgames.com/pathfinding/a-star/introduction.html
-
+                    old_robot_x = robot["x"]
+                    old_robot_y = robot["y"]
                     destination = { "x": int(robot["directions"][0]["x"]), "y": int(robot["directions"][0]["y"]) }
 
                     def tileNeighbors(point):
@@ -226,6 +227,16 @@ async def websocketConnection():
                         robot["x"] = path[0]["x"]
                         robot["y"] = path[0]["y"]
 
+                        # Read sensors from real map and write back to map of the new position
+                        map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] - 1)]
+                        mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] })
+                        map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] + 1)]
+                        mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] })
+                        map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] - 1) * MAP_WIDTH + robot["x"]]
+                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] })
+                        map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] + 1) * MAP_WIDTH + robot["x"]]
+                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] })
+
                         # When we are at the destination delete direction
                         if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
                             # Cancel direction because complete
@@ -246,12 +257,7 @@ async def websocketConnection():
                             "robot_id": ROBOT_ID,
                             "robot_x": robot["x"],
                             "robot_y": robot["y"],
-                            "map": [
-                                { "x": old_robot_x - 1, "y": old_robot_y, "type": map[old_robot_y * MAP_WIDTH + (old_robot_x - 1)] },
-                                { "x": old_robot_x + 1, "y": old_robot_y, "type": map[old_robot_y * MAP_WIDTH + (old_robot_x + 1)] },
-                                { "x": old_robot_x, "y": old_robot_y - 1, "type": map[(old_robot_y - 1) * MAP_WIDTH + old_robot_x] },
-                                { "x": old_robot_x, "y": old_robot_y + 1, "type": map[(old_robot_y + 1) * MAP_WIDTH + old_robot_x] }
-                            ]
+                            "map": mapUpdates
                         }
                     }))
 

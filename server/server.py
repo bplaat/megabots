@@ -36,7 +36,7 @@ TILE_WALL = 3
 
 # Server tick information
 tickType = TICK_MANUAL
-tickSpeed = 500
+tickSpeed = 200
 
 # Init square map with robots in corners and all around wall rest unkown
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
@@ -69,20 +69,24 @@ def log(line):
         print("[SERVER] " + line)
 
 # Timer callback
+currentRobotIndex = None
 async def tick():
+    global currentRobotIndex
+
     for website in websites:
         await website["websocket"].send(json.dumps({
             "type": "website_tick",
             "data": {}
         }))
 
-    for robot in robots:
-        log("Tick for Robot " + str(robot["id"]))
-
-        await robot["websocket"].send(json.dumps({
-            "type": "robot_tick",
-            "data": {}
-        }))
+    # Tick first robot in the robot_tick_done will the next robot be ticked
+    currentRobotIndex = 0
+    log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
+    await robots[currentRobotIndex]["websocket"].send(json.dumps({
+        "type": "robot_tick",
+        "data": {}
+    }))
+    currentRobotIndex += 1
 
 async def timerCallback():
     await tick()
@@ -369,6 +373,14 @@ async def websocketConnection(websocket, path):
                         "map": mapUpdates
                     }
                 }))
+
+            if currentRobotIndex < len(robots):
+                log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
+                await robots[currentRobotIndex]["websocket"].send(json.dumps({
+                    "type": "robot_tick",
+                    "data": {}
+                }))
+                currentRobotIndex += 1
 
     # Disconnect message
     for robot in robots:

@@ -27,7 +27,7 @@ for (let y = 0; y < MAP_HEIGHT; y++) {
 }
 
 // App
-let ws, mapMeshesGroup, cubeGeometry, floorGeometry, unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
+let ws, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
 const mapMeshes = [], robotsGroups = [];
 
 function rand (min, max) {
@@ -53,7 +53,7 @@ const app = new Vue({
         id: Date.now(),
         connected: false,
         tickType: TICK_MANUAL,
-        tickSpeed: 500,
+        tickSpeed: 200,
 
         sendForm: {
             robot_id: 1,
@@ -69,7 +69,7 @@ const app = new Vue({
             robot_y2: 2
         },
 
-        activeProgram: 'Nothing',
+        activeProgram: 'Discover',
         programs: {
             Nothing() {},
             Discover() {
@@ -354,17 +354,24 @@ const app = new Vue({
                 if (mapMeshes.length > 0) {
                     mapMeshesGroup.remove(mapMeshes[y * MAP_WIDTH + x]);
 
+                    let geometry
+                    if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
+                    if (type == TILE_FLOOR) geometry = floorGeometry;
+                    if (type == TILE_WALL) geometry = wallGeometry;
+
                     let material;
                     if (type == TILE_UNKOWN) material = unkownMaterial;
                     if (type == TILE_FLOOR) material = floorMaterial;
                     if (type == TILE_CHEST) material = chestMaterial;
                     if (type == TILE_WALL) material = wallMaterial;
 
-                    const tileMesh = new THREE.Mesh(type == TILE_FLOOR ? floorGeometry : cubeGeometry, material);
+
+                    const tileMesh = new THREE.Mesh(geometry, material);
                     tileMesh.position.x = x - MAP_WIDTH / 2;
                     tileMesh.position.z = y - MAP_HEIGHT / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
+                    if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
                     mapMeshes[y * MAP_WIDTH + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
@@ -429,8 +436,9 @@ const app = new Vue({
             mapMeshesGroup = new THREE.Group();
             scene.add(mapMeshesGroup);
 
-            cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
             floorGeometry = new THREE.PlaneGeometry(1, 1);
+            cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
+            wallGeometry = new THREE.BoxGeometry(1, 1.5, 1);
             unkownMaterial = new THREE.MeshBasicMaterial({ color: 0x222222, map: new THREE.TextureLoader().load('/images/unkown.jpg') });
             floorMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/floor.jpg'), side: THREE.DoubleSide });
             chestMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/chest.jpg') });
@@ -440,17 +448,23 @@ const app = new Vue({
                 for (let x = 0; x < MAP_WIDTH; x++) {
                     const type = map[y * MAP_WIDTH + x];
 
+                    let geometry
+                    if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
+                    if (type == TILE_FLOOR) geometry = floorGeometry;
+                    if (type == TILE_WALL) geometry = wallGeometry;
+
                     let material;
                     if (type == TILE_UNKOWN) material = unkownMaterial;
                     if (type == TILE_FLOOR) material = floorMaterial;
                     if (type == TILE_CHEST) material = chestMaterial;
                     if (type == TILE_WALL) material = wallMaterial;
 
-                    const tileMesh = new THREE.Mesh(type == TILE_FLOOR ? floorGeometry : cubeGeometry, material);
+                    const tileMesh = new THREE.Mesh(geometry, material);
                     tileMesh.position.x = x - MAP_WIDTH / 2;
                     tileMesh.position.z = y - MAP_HEIGHT / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
+                    if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
                     mapMeshes[y * MAP_WIDTH + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
