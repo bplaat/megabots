@@ -42,8 +42,8 @@
                 <p>
                     <button @click="tickType = tickManual">Stop!</button>
                     <select v-model="tickType">
-                        <option :value="tickAuto">Auto Tick</option>
                         <option :value="tickManual">Manual Tick</option>
+                        <option :value="tickAuto">Auto Tick</option>
                     </select>
                     <span v-if="tickType == tickAuto">
                         Speed:

@@ -1,8 +1,10 @@
 // Constants
+const DEBUG = false;
+
 const WEBSOCKETS_PORT = 8080;
 
-const TICK_AUTO = 0;
-const TICK_MANUAL = 1;
+const TICK_MANUAL = 0;
+const TICK_AUTO = 1;
 
 const MAP_WIDTH = 24;
 const MAP_HEIGHT = 24;
@@ -36,8 +38,8 @@ const app = new Vue({
     el: '#app',
 
     data: {
-        tickAuto: TICK_AUTO,
         tickManual: TICK_MANUAL,
+        tickAuto: TICK_AUTO,
         mapWidth: MAP_WIDTH,
         mapHeight: MAP_HEIGHT,
 
@@ -50,7 +52,7 @@ const app = new Vue({
 
         id: Date.now(),
         connected: false,
-        tickType: TICK_AUTO,
+        tickType: TICK_MANUAL,
         tickSpeed: 500,
 
         sendForm: {
@@ -170,7 +172,7 @@ const app = new Vue({
 
     methods: {
         websocketsConnect() {
-            ws = new WebSocket("ws://127.0.0.1:" + WEBSOCKETS_PORT + "/");
+            ws = new WebSocket('ws://127.0.0.1:' + WEBSOCKETS_PORT + '/');
 
             ws.onopen = () => {
                 ws.send(JSON.stringify({
@@ -183,7 +185,9 @@ const app = new Vue({
             };
 
             ws.onmessage = event => {
-                console.log('Server message: ' + event.data);
+                if (DEBUG) {
+                    console.log('Server message: ' + event.data);
+                }
                 const message = JSON.parse(event.data);
 
                 // Connect message
@@ -262,6 +266,11 @@ const app = new Vue({
 
                     this.worldMoveRobot(message.data.robot_id, message.data.robot_x, message.data.robot_y);
                 }
+
+                // Website tick message
+                if (message.type == 'website_tick') {
+                    this.programs[this.activeProgram].bind(this)();
+                }
             };
 
             ws.onclose = () => {
@@ -285,8 +294,6 @@ const app = new Vue({
 
         tick() {
             if (this.tickType == TICK_MANUAL) {
-                this.programs[this.activeProgram].bind(this)();
-
                 ws.send(JSON.stringify({
                     type: 'world_tick',
                     data: {}

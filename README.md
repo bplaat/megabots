@@ -89,15 +89,15 @@ loop {
 
 ### World info message
 ```python
-TICK_AUTO = 0
-TICK_MANUAL = 1
+TICK_MANUAL = 0
+TICK_AUTO = 1
 ```
 
 ```json
 {
     "type": "world_info",
     "data": {
-        "tick_type": 1,
+        "tick_type": 0,
         "tick_speed": 500,
         "map": [ 1, 1, 2... ]
     }
@@ -150,7 +150,7 @@ TICK_MANUAL = 1
 
 ### Robot tick message
 ```json
-{ "type": "robot_tick", "data": { "robot_id": 1 } }
+{ "type": "robot_tick", "data": {} }
 ```
 
 ### Robot tick done message
@@ -175,4 +175,9 @@ TILE_WALL = 3
         ]
     }
 }
+```
+
+### Website tick message
+```json
+{ "type": "website_tick", "data": {} }
 ```

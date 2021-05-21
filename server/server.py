@@ -4,11 +4,27 @@ import asyncio
 import websockets
 import json
 
+# Simple asyncio timer class
+class Timer:
+    def __init__(self, timeout, callback):
+        self._timeout = timeout
+        self._callback = callback
+        self._task = asyncio.ensure_future(self._job())
+
+    async def _job(self):
+        await asyncio.sleep(self._timeout)
+        await self._callback()
+
+    def cancel(self):
+        self._task.cancel()
+
 # Constants
+DEBUG = False
+
 WEBSOCKETS_PORT = 8080
 
-TICK_AUTO = 0
-TICK_MANUAL = 1
+TICK_MANUAL = 0
+TICK_AUTO = 1
 
 MAP_WIDTH = 24
 MAP_HEIGHT = 24
@@ -21,7 +37,6 @@ TILE_WALL = 3
 # Server tick information
 tickType = TICK_MANUAL
 tickSpeed = 500
-currentRobotIndex = 0
 
 # Init square map with robots in corners and all around wall rest unkown
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
@@ -50,7 +65,29 @@ websites = []
 
 # Simple log function
 def log(line):
-    print("[SERVER] " + line)
+    if DEBUG:
+        print("[SERVER] " + line)
+
+# Timer callback
+async def tick():
+    for website in websites:
+        await website["websocket"].send(json.dumps({
+            "type": "website_tick",
+            "data": {}
+        }))
+
+    for robot in robots:
+        log("Tick for Robot " + str(robot["id"]))
+
+        await robot["websocket"].send(json.dumps({
+            "type": "robot_tick",
+            "data": {}
+        }))
+
+async def timerCallback():
+    await tick()
+    if tickType == TICK_AUTO:
+        timer = Timer(tickSpeed / 1000, timerCallback)
 
 # Websocket server
 async def websocketConnection(websocket, path):
@@ -196,8 +233,12 @@ async def websocketConnection(websocket, path):
             messageData = {}
 
             if "tick_type" in message["data"]:
+                oldTickType = tickType
                 tickType = message["data"]["tick_type"]
                 messageData["tick_type"] = tickType
+
+                if oldTickType == TICK_MANUAL and tickType == TICK_AUTO:
+                    timer = Timer(tickSpeed / 1000, timerCallback)
 
             if "tick_speed" in message["data"]:
                 tickSpeed = message["data"]["tick_speed"]
@@ -218,18 +259,7 @@ async def websocketConnection(websocket, path):
 
         # World tick message
         if message["type"] == "world_tick":
-            while currentRobotIndex < len(robots):
-                robot = robots[currentRobotIndex]
-                log("Tick for Robot " + str(robot["id"]))
-
-                await robot["websocket"].send(json.dumps({
-                    "type": "robot_tick",
-                    "data": {}
-                }))
-
-                currentRobotIndex += 1
-
-            currentRobotIndex = 0
+            await tick()
 
         # New direction message
         if message["type"] == "new_direction":

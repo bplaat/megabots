@@ -7,6 +7,8 @@ import json
 import numpy
 
 # Constants
+DEBUG = False
+
 WEBSOCKETS_PORT = 8080
 
 ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
@@ -62,7 +64,8 @@ robots = [
 
 # Simple log function
 def log(line):
-    print("[ROBOT " + str(ROBOT_ID) + "] " + line)
+    if DEBUG:
+        print("[ROBOT " + str(ROBOT_ID) + "] " + line)
 
 # Websocket server connection
 async def websocketConnection():
