@@ -39,8 +39,7 @@
             <div class="controls box">
                 <h2>Controls</h2>
                 <p>
-                    <button @click="running = !running">{{ running ? 'Stop' : 'Start' }}</button> |
-
+                    <button @click="tickType = tickManual">Stop!</button>
                     <select v-model="tickType">
                         <option :value="tickAuto">Auto Tick</option>
                         <option :value="tickManual">Manual Tick</option>

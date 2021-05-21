@@ -7,6 +7,9 @@ import json
 # Constants
 WEBSOCKETS_PORT = 8080
 
+TICK_AUTO = 0
+TICK_MANUAL = 1
+
 MAP_WIDTH = 16
 MAP_HEIGHT = 16
 
@@ -15,8 +18,10 @@ TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
 
-# Server running
-running = True
+# Server tick information
+tickType = TICK_AUTO
+tickSpeed = 500
+currentRobotIndex = 0
 
 # Init square map with robots in corners and all around wall
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
@@ -49,12 +54,14 @@ def log(line):
 
 # Websocket server
 async def websocketConnection(websocket, path):
+    global tickType, tickSpeed
+
     async for data in websocket:
         log("Client message: " + data)
         message = json.loads(data)
 
         # Connect message
-        if message["type"] == "connect":
+        if message["type"] == "robot_connect":
             robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
             robot["x"] = message["data"]["robot_x"]
             robot["y"] = message["data"]["robot_y"]
@@ -68,12 +75,22 @@ async def websocketConnection(websocket, path):
             robot["websocket"] = websocket
             log("Robot " + str(robot["id"]) + " is connected")
 
+            # Send world info message
+            await websocket.send(json.dumps({
+                "type": "world_info",
+                "data": {
+                    "tick_type": tickType,
+                    "tick_speed": tickSpeed,
+                    "map": map
+                }
+            }))
+
             # Send other robot connected messages
             for otherRobot in robots:
                 if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
                     # Send robot connect message of this other robot
                     await websocket.send(json.dumps({
-                        "type": "connect",
+                        "type": "robot_connect",
                         "data": {
                             "robot_id": otherRobot["id"],
                             "robot_x": otherRobot["x"],
@@ -84,7 +101,7 @@ async def websocketConnection(websocket, path):
 
                     # Send other robot connect message of this robot
                     await otherRobot["websocket"].send(json.dumps({
-                        "type": "connect",
+                        "type": "robot_connect",
                         "data": {
                             "robot_id": robot["id"],
                             "robot_x": robot["x"],
@@ -105,7 +122,7 @@ async def websocketConnection(websocket, path):
 
                 # Send this website connect message of this robot
                 await website["websocket"].send(json.dumps({
-                    "type": "connect",
+                    "type": "robot_connect",
                     "data": {
                         "robot_id": robot["id"],
                         "robot_x": robot["x"],
@@ -123,12 +140,22 @@ async def websocketConnection(websocket, path):
             websites.append(website)
             log("Website " + str(website["id"]) + " is connected")
 
+            # Send world info message
+            await websocket.send(json.dumps({
+                "type": "world_info",
+                "data": {
+                    "tick_type": tickType,
+                    "tick_speed": tickSpeed,
+                    "map": map
+                }
+            }))
+
             # Send robot connected messages
             for robot in robots:
                 if robot["websocket"] != None:
                     # Send website connect message of this robot
                     await websocket.send(json.dumps({
-                        "type": "connect",
+                        "type": "robot_connect",
                         "data": {
                             "robot_id": robot["id"],
                             "robot_x": robot["x"],
@@ -164,38 +191,29 @@ async def websocketConnection(websocket, path):
                         }
                     }))
 
-        # Start message
-        if message["type"] == "start":
-            running = True
+        # Update world info message
+        if message["type"] == "update_world_info":
+            messageData = {}
+
+            if "tick_type" in message["data"]:
+                tickType = message["data"]["tick_type"]
+                messageData["tick_type"] = tickType
+
+            if "tick_speed" in message["data"]:
+                tickSpeed = message["data"]["tick_speed"]
+                messageData["tick_speed"] = tickSpeed
 
             for robot in robots:
                 if robot["websocket"] != None:
                     await robot["websocket"].send(json.dumps({
-                        "type": "start",
-                        "data": {}
+                        "type": "update_world_info",
+                        "data": messageData
                     }))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
-                    "type": "start",
-                    "data": {}
-                }))
-
-        # Stop message
-        if message["type"] == "stop":
-            running = False
-
-            for robot in robots:
-                if robot["websocket"] != None:
-                    await robot["websocket"].send(json.dumps({
-                        "type": "stop",
-                        "data": {}
-                    }))
-
-            for website in websites:
-                await website["websocket"].send(json.dumps({
-                    "type": "stop",
-                    "data": {}
+                    "type": "update_world_info",
+                    "data": messageData
                 }))
 
         # New direction message
@@ -276,7 +294,7 @@ async def websocketConnection(websocket, path):
             for robot in robots:
                 if robot["websocket"] != None:
                     await robot["websocket"].send(json.dumps({
-                        "type": "disconnect",
+                        "type": "robot_disconnect",
                         "data": {
                             "robot_id": robot["id"]
                         }
@@ -284,7 +302,7 @@ async def websocketConnection(websocket, path):
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
-                    "type": "disconnect",
+                    "type": "robot_disconnect",
                     "data": {
                         "robot_id": robot["id"]
                     }

@@ -18,22 +18,24 @@ TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
 
-# Server running
-running = True
-
-# Init square map with robots in corners and all around wall
+# Init square map with robots in corners and all around wall with some chest stripes inside
 map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
 for y in range(MAP_HEIGHT):
     for x in range(MAP_WIDTH):
         if x == 0 or y == 0 or x == MAP_WIDTH - 1 or y == MAP_HEIGHT - 1:
             map[y * MAP_WIDTH + x] = TILE_WALL
-        if (
+        elif (
             (x == 1 and y == 1) or
             (x == MAP_WIDTH - 2 and y == 1) or
             (x == 1 and y == MAP_HEIGHT - 2) or
             (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
         ):
             map[y * MAP_WIDTH + x] = TILE_FLOOR
+        else:
+            if (x + y) % 3 or x == 1 or y == 1 or x == MAP_WIDTH - 2 or y == MAP_HEIGHT - 2:
+                map[y * MAP_WIDTH + x] = TILE_FLOOR
+            else:
+                map[y * MAP_WIDTH + x] = TILE_CHEST
 
 # Robots start in the corners
 robots = [
@@ -55,7 +57,7 @@ async def websocketConnection():
             # Send connect message
             robot = next((robot for robot in robots if robot["id"] == ROBOT_ID), None)
             await websocket.send(json.dumps({
-                "type": "connect",
+                "type": "robot_connect",
                 "data": {
                     "robot_id": ROBOT_ID,
                     "robot_x": robot["x"],
@@ -72,7 +74,7 @@ async def websocketConnection():
                 message = json.loads(data)
 
                 # Connect message
-                if message["type"] == "connect":
+                if message["type"] == "robot_connect":
                     otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                     otherRobot["x"] = message["data"]["robot_x"]
                     otherRobot["y"] = message["data"]["robot_y"]
@@ -87,20 +89,16 @@ async def websocketConnection():
                     log("Robot " + str(otherRobot["id"]) + " is connected")
 
                 # Disconnect message
-                if message["type"] == "disconnect":
+                if message["type"] == "robot_disconnect":
                     otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                     otherRobot["connected"] = False
                     log("Robot " + str(otherRobot["id"]) + " is disconnected")
 
-                # Start message
-                if message["type"] == "start":
-                    running = True
-                    log("Starting")
-
-                # Stop message
-                if message["type"] == "stop":
-                    running = False
-                    log("Stopping")
+                # World info message
+                if message["type"] == "world_info":
+                    for i in range(MAP_HEIGHT * MAP_WIDTH):
+                        if map[i] == TILE_UNKOWN and message["data"]["map"][i] != TILE_UNKOWN:
+                            map[i] = message["data"]["map"][i]
 
                 # New Direction message
                 if message["type"] == "new_direction":
@@ -122,8 +120,8 @@ async def websocketConnection():
                     log("Cancel direction for robot " + str(otherRobot["id"]))
 
                 # Tick message
-                if message["type"] == "tick":
-                    if running and len(robot["directions"]) > 0:
+                if message["type"] == "robot_tick":
+                    if len(robot["directions"]) > 0:
                         log("Tick")
 
                         # TODO
@@ -136,7 +134,7 @@ async def websocketConnection():
 
                         # Send tick done message
                         await websocket.send(json.dumps({
-                            "type": "tick_done",
+                            "type": "robot_tick_done",
                             "data": {
                                 "robot_id": ROBOT_ID,
                                 "robot_x": robot["x"],
@@ -153,7 +151,7 @@ async def websocketConnection():
                         log("Tick done")
 
                 # Tick done message
-                if message["type"] == "tick_done":
+                if message["type"] == "robot_tick_done":
                     otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                     otherRobot["x"] = message["data"]["robot_x"]
                     otherRobot["y"] = message["data"]["robot_y"]

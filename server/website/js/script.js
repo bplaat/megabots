@@ -45,7 +45,6 @@ const app = new Vue({
 
         id: Date.now(),
         connected: false,
-        running: true,
         tickType: TICK_AUTO,
         tickSpeed: 500,
 
@@ -65,19 +64,25 @@ const app = new Vue({
     },
 
     watch: {
-        running(running, oldRunning) {
-            if (this.connected && running != oldRunning) {
-                if (running) {
-                    ws.send(JSON.stringify({
-                        type: 'start',
-                        data: {}
-                    }));
-                } else {
-                    ws.send(JSON.stringify({
-                        type: 'stop',
-                        data: {}
-                    }));
-                }
+        tickType(tickType, oldTickType) {
+            if (this.connected && tickType != oldTickType) {
+                ws.send(JSON.stringify({
+                    type: 'update_world_info',
+                    data: {
+                        tick_type: tickType
+                    }
+                }));
+            }
+        },
+
+        tickSpeed(tickSpeed, oldTickSpeed) {
+            if (this.connected && tickSpeed != oldTickSpeed) {
+                ws.send(JSON.stringify({
+                    type: 'update_world_info',
+                    data: {
+                        tick_speed: tickSpeed
+                    }
+                }));
             }
         }
     },
@@ -97,11 +102,11 @@ const app = new Vue({
             };
 
             ws.onmessage = event => {
-                console.log('Server message:', event.data);
+                console.log('Server message: ' + event.data);
                 const message = JSON.parse(event.data);
 
                 // Connect message
-                if (message.type == 'connect') {
+                if (message.type == 'robot_connect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     this.worldUpdateTile(message.data.robot_x, message.data.robot_y, TILE_FLOOR);
                     this.worldMoveRobot(robot.id, message.data.robot_x, message.data.robot_y);
@@ -119,7 +124,7 @@ const app = new Vue({
                 }
 
                 // Disconnect message
-                if (message.type == 'disconnect') {
+                if (message.type == 'robot_disconnect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = false;
 
@@ -128,14 +133,28 @@ const app = new Vue({
                     }
                 }
 
-                // Start message
-                if (message.type == 'start') {
-                    this.running = true;
+                // World info message
+                if (message.type == 'world_info') {
+                    this.tickType = message.data.tick_type;
+                    this.tickSpeed = message.data.tick_speed;
+
+                    for (let y = 0; y < MAP_HEIGHT; y++) {
+                        for (let x = 0; x < MAP_WIDTH; x++) {
+                            if (map[y * MAP_WIDTH + x] == TILE_UNKOWN && message.data.map[y * MAP_WIDTH + x] != TILE_UNKOWN) {
+                                this.worldUpdateTile(x, y, message.data.map[y * MAP_WIDTH + x]);
+                            }
+                        }
+                    }
                 }
 
-                // Stop message
-                if (message.type == 'stop') {
-                    this.running = false;
+                // Update world info message
+                if (message.type == 'update_world_info') {
+                    if (message.data.tick_type != undefined) {
+                        this.tickType = message.data.tick_type;
+                    }
+                    if (message.data.tick_speed != undefined) {
+                        this.tickSpeed = message.data.tick_speed;
+                    }
                 }
 
                 // New direction message
@@ -155,7 +174,7 @@ const app = new Vue({
                 }
 
                 // Tick done message
-                if (message.type == 'tick_done') {
+                if (message.type == 'robot_tick_done') {
                     for (const mapUpdate of message.data.map) {
                         this.worldUpdateTile(mapUpdate.x, mapUpdate.y, mapUpdate.type);
                     }
@@ -183,7 +202,12 @@ const app = new Vue({
         },
 
         tick() {
-            // TODO
+            if (this.tickType == TICK_MANUAL) {
+                ws.send(JSON.stringify({
+                    type: 'world_tick',
+                    data: {}
+                }));
+            }
         },
 
         sendFormSubmit() {
@@ -233,25 +257,27 @@ const app = new Vue({
         },
 
         worldUpdateTile(x, y, type) {
-            map[y * MAP_WIDTH + x] = type;
+            if (type != map[y * MAP_WIDTH + x]) {
+                map[y * MAP_WIDTH + x] = type;
 
-            if (mapMeshes.length > 0) {
-                mapMeshesGroup.remove(mapMeshes[y * MAP_WIDTH + x]);
+                if (mapMeshes.length > 0) {
+                    mapMeshesGroup.remove(mapMeshes[y * MAP_WIDTH + x]);
 
-                let material;
-                if (type == TILE_UNKOWN) material = unkownMaterial;
-                if (type == TILE_FLOOR) material = floorMaterial;
-                if (type == TILE_CHEST) material = chestMaterial;
-                if (type == TILE_WALL) material = wallMaterial;
+                    let material;
+                    if (type == TILE_UNKOWN) material = unkownMaterial;
+                    if (type == TILE_FLOOR) material = floorMaterial;
+                    if (type == TILE_CHEST) material = chestMaterial;
+                    if (type == TILE_WALL) material = wallMaterial;
 
-                const tileMesh = new THREE.Mesh(type == TILE_FLOOR ? floorGeometry : cubeGeometry, material);
-                tileMesh.position.x = x - MAP_WIDTH / 2;
-                tileMesh.position.z = y - MAP_HEIGHT / 2;
-                if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
-                if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
+                    const tileMesh = new THREE.Mesh(type == TILE_FLOOR ? floorGeometry : cubeGeometry, material);
+                    tileMesh.position.x = x - MAP_WIDTH / 2;
+                    tileMesh.position.z = y - MAP_HEIGHT / 2;
+                    if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
+                    if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
 
-                mapMeshes[y * MAP_WIDTH + x] = tileMesh;
-                mapMeshesGroup.add(tileMesh);
+                    mapMeshes[y * MAP_WIDTH + x] = tileMesh;
+                    mapMeshesGroup.add(tileMesh);
+                }
             }
         },
 

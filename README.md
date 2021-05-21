@@ -18,39 +18,40 @@ Some mega bots living in a grid
 All message are encoded in JSON and send over an plain WebSocket connection with the centeral websockets server.
 
 ```
-> robot 1 { connect }
-< robot 2 { connect }
-< robot 3 { connect }
-< robot 4 { connect }
+> robot 1 { robot_connect }
+< robot 1 { world_info }
+< robot 2 { robot_connect }
+< robot 3 { robot_connect }
+< robot 4 { robot_connect }
 
-> website { start or stop or new_direction or cancel_direction }
-< robot 1 { start or stop or new_direction or cancel_direction }
-< robot 2 { start or stop or new_direction or cancel_direction }
-< robot 3 { start or stop or new_direction or cancel_direction }
-< robot 4 { start or stop or new_direction or cancel_direction }
+> website { new_direction or cancel_direction }
+< robot 1 { new_direction or cancel_direction }
+< robot 2 { new_direction or cancel_direction }
+< robot 3 { new_direction or cancel_direction }
+< robot 4 { new_direction or cancel_direction }
 
 loop {
-    < robot 1 { tick with robot_id = 1 }
-    < robot 2 { tick with robot_id = 1 }
-    < robot 3 { tick with robot_id = 1 }
-    < robot 4 { tick with robot_id = 1 }
+    < robot 1 { robot_tick with robot_id = 1 }
+    < robot 2 { robot_tick with robot_id = 1 }
+    < robot 3 { robot_tick with robot_id = 1 }
+    < robot 4 { robot_tick with robot_id = 1 }
 
-    > robot 1 { tick_done }
-    < robot 2 { tick_done }
-    < robot 3 { tick_done }
-    < robot 4 { tick_done }
+    > robot 1 { robot_tick_done }
+    < robot 2 { robot_tick_done }
+    < robot 3 { robot_tick_done }
+    < robot 4 { robot_tick_done }
 }
 
 **Robot 1 disconnects**
-< robot 2 { disconnect }
-< robot 3 { disconnect }
-< robot 4 { disconnect }
+< robot 2 { robot_disconnect }
+< robot 3 { robot_disconnect }
+< robot 4 { robot_disconnect }
 ```
 
-### Connect message
+### Robot connect message
 ```json
 {
-    "type": "connect",
+    "type": "robot_connect",
     "data": {
         "robot_id": 1,
         "robot_x": 3,
@@ -71,19 +72,47 @@ loop {
 }
 ```
 
-### Disconnect message
+### Robot disconnect message
 ```json
-{ "type": "disconnect", "data": { "robot_id": 1 } }
+{ "type": "robot_disconnect", "data": { "robot_id": 1 } }
 ```
 
-### Start message
+### Website connect message
 ```json
-{ "type": "start", "data": {} }
+{ "type": "website_connect", "data": { "website_id": 1621576963658 } }
 ```
 
-### Stop message
+### Website disconnect message
 ```json
-{ "type": "stop", "data": {} }
+{ "type": "website_disconnect", "data": { "website_id": 1621576963658 } }
+```
+
+### World info message
+```python
+TICK_AUTO = 0
+TICK_MANUAL = 1
+```
+
+```json
+{
+    "type": "world_info",
+    "data": {
+        "tick_type": 1,
+        "tick_speed": 500,
+        "map": [ 1, 1, 2... ]
+    }
+}
+```
+
+### Update world info message
+```json
+{
+    "type": "update_world_info",
+    "data": {
+        "tick_type": 1,
+        "tick_speed": 500
+    }
+}
 ```
 
 ### New direction message
@@ -114,12 +143,17 @@ loop {
 }
 ```
 
-### Tick message
+### World (manual) tick message
 ```json
-{ "type": "tick", "data": { "robot_id": 1 } }
+{ "type": "world_tick", "data": {} }
 ```
 
-### Tick done message
+### Robot tick message
+```json
+{ "type": "robot_tick", "data": { "robot_id": 1 } }
+```
+
+### Robot tick done message
 ```python
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
@@ -128,7 +162,7 @@ TILE_WALL = 3
 ```
 ```json
 {
-    "type": "tick_done",
+    "type": "robot_tick_done",
     "data": {
         "robot_id": 1,
         "robot_x":  4,
@@ -141,14 +175,4 @@ TILE_WALL = 3
         ]
     }
 }
-```
-
-### Website connect message
-```json
-{ "type": "website_connect", "data": { "website_id": 1621576963658 } }
-```
-
-### Website disconnect message
-```json
-{ "type": "website_disconnect", "data": { "website_id": 1621576963658 } }
 ```
