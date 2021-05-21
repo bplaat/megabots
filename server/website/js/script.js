@@ -60,6 +60,61 @@ const app = new Vue({
             robot_y1: 1,
             robot_x2: 2,
             robot_y2: 2
+        },
+
+        activeProgram: 'Nothing',
+        programs: {
+            Nothing() {},
+            Discover() {
+                // Check if there are unkown tiles
+                let isDiscovered = true;
+                for (let i = 0; i < MAP_HEIGHT * MAP_WIDTH; i++) {
+                    if (map[i] == TILE_UNKOWN) {
+                        isDiscovered = false;
+                        break;
+                    }
+                }
+
+                if (!isDiscovered) {
+                    // Get list off all unkown tiles
+                    const unkownTiles = [];
+                    for (let y = 0; y < MAP_HEIGHT; y++) {
+                        for (let x = 0; x < MAP_WIDTH; x++) {
+                            if (map[y * MAP_WIDTH + x] == TILE_UNKOWN) {
+                                unkownTiles.push({ x: x, y: y });
+                            }
+                        }
+                    }
+
+                    for (const robot of this.robots) {
+                        if (robot.directions.length == 0) {
+                            // Get closest unkown tile
+                            let closestUnkownTile = unkownTiles[0];
+                            for (const unkownTile of unkownTiles) {
+                                if (
+                                    Math.sqrt((unkownTile.x - robot.x) ** 2 + (unkownTile.y - robot.y) ** 2) <
+                                    Math.sqrt((closestUnkownTile.x - robot.x) ** 2 + (closestUnkownTile.y - robot.y) ** 2)
+                                ) {
+                                    closestUnkownTile = unkownTile;
+                                }
+                            }
+
+                            // Drive robot to closest unkown tile
+                            ws.send(JSON.stringify({
+                                type: 'new_direction',
+                                data: {
+                                    robot_id: robot.id,
+                                    direction: {
+                                        id: Date.now(),
+                                        x: closestUnkownTile.x,
+                                        y: closestUnkownTile.y
+                                    }
+                                }
+                            }));
+                        }
+                    }
+                }
+            }
         }
     },
 
@@ -204,6 +259,8 @@ const app = new Vue({
 
         tick() {
             if (this.tickType == TICK_MANUAL) {
+                this.programs[this.activeProgram].bind(this)();
+
                 ws.send(JSON.stringify({
                     type: 'world_tick',
                     data: {}

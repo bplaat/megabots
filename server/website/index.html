@@ -29,7 +29,7 @@
                     <li v-for="robot in robots" :key="robot.id">
                         <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
                         <ul v-if="robot.directions.length > 0">
-                            <li v-for="direction, index in robot.directions">
+                            <li v-for="direction, index in robot.directions" :key="direction.id">
                                 Drive to: {{ direction.x }} x {{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
                             </li>
                         </ul>
@@ -48,13 +48,15 @@
                     <span v-if="tickType == tickAuto">
                         Speed:
                         <select v-model="tickSpeed">
-                            <option v-for="i in 10" :value="i * 100">{{ i * 100 }} ms</option>
+                            <option v-for="i in 10" :key="i * 100" :value="i * 100">{{ i * 100 }} ms</option>
                         </select>
                     </span>
                     <span v-else>
                         <button @click="tick">Tick</button>
                     </span>
                 </p>
+
+                <hr>
 
                 <form @submit.prevent="sendFormSubmit">
                     <p>
@@ -71,6 +73,8 @@
                         <button type="sumbit">Send</button>
                     </p>
                 </form>
+
+                <hr>
 
                 <form @submit.prevent="pickupFormSubmit">
                     <p>
@@ -94,6 +98,13 @@
                         <button>Send</button>
                     </p>
                 </form>
+                <hr>
+                <p>
+                    Program:
+                    <select v-model="activeProgram">
+                        <option v-for="program in programs" :key="program.name" :value="program.name">{{ program.name }}</option>
+                    </select>
+                </p>
             </div>
         </div>
 
