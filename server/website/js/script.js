@@ -6,28 +6,13 @@ const WEBSOCKETS_PORT = 8080;
 const TICK_MANUAL = 0;
 const TICK_AUTO = 1;
 
-const MAP_WIDTH = 24;
-const MAP_HEIGHT = 24;
-
 const TILE_UNKOWN = 0;
 const TILE_FLOOR = 1;
 const TILE_CHEST = 2;
 const TILE_WALL = 3;
 
-// Init square map with robots in corners and all around wall rest unkown
-const map = new Array(MAP_HEIGHT * MAP_WIDTH);
-for (let y = 0; y < MAP_HEIGHT; y++) {
-    for (let x = 0; x < MAP_WIDTH; x++) {
-        if (x == 0 || y == 0 || x == MAP_WIDTH - 1 || y == MAP_HEIGHT - 1) {
-            map[y * MAP_WIDTH + x] = TILE_WALL;
-        } else {
-            map[y * MAP_WIDTH + x] = TILE_UNKOWN;
-        }
-    }
-}
-
 // App
-let ws, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
+let websocket, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
 const mapMeshes = [], robotsGroups = [];
 
 function rand (min, max) {
@@ -40,8 +25,15 @@ const app = new Vue({
     data: {
         tickManual: TICK_MANUAL,
         tickAuto: TICK_AUTO,
-        mapWidth: MAP_WIDTH,
-        mapHeight: MAP_HEIGHT,
+
+        id: Date.now(),
+        connected: false,
+        tickType: undefined,
+        tickSpeed: undefined,
+
+        mapWidth: undefined,
+        mapHeight: undefined,
+        mapData: [],
 
         robots: [
             { id: 1, color: 0xff0000, x: undefined, y: undefined, directions: [], connected: false },
@@ -49,11 +41,6 @@ const app = new Vue({
             { id: 3, color: 0xffff00, x: undefined, y: undefined, directions: [], connected: false },
             { id: 4, color: 0x0000ff, x: undefined, y: undefined, directions: [], connected: false }
         ],
-
-        id: Date.now(),
-        connected: false,
-        tickType: TICK_MANUAL,
-        tickSpeed: 200,
 
         sendForm: {
             robot_id: 1,
@@ -75,8 +62,8 @@ const app = new Vue({
             Discover() {
                 // Check if there are unkown tiles
                 let isDiscovered = true;
-                for (let i = 0; i < MAP_HEIGHT * MAP_WIDTH; i++) {
-                    if (map[i] == TILE_UNKOWN) {
+                for (let i = 0; i < this.mapHeight * this.mapWidth; i++) {
+                    if (this.mapData[i] == TILE_UNKOWN) {
                         isDiscovered = false;
                         break;
                     }
@@ -85,9 +72,9 @@ const app = new Vue({
                 if (!isDiscovered) {
                     // Get list off all unkown tiles
                     let unkownTiles = [];
-                    for (let y = 0; y < MAP_HEIGHT; y++) {
-                        for (let x = 0; x < MAP_WIDTH; x++) {
-                            if (map[y * MAP_WIDTH + x] == TILE_UNKOWN) {
+                    for (let y = 0; y < this.mapHeight; y++) {
+                        for (let x = 0; x < this.mapWidth; x++) {
+                            if (this.mapData[y * this.mapWidth + x] == TILE_UNKOWN) {
                                 unkownTiles.push({ x: x, y: y });
                             }
                         }
@@ -107,7 +94,7 @@ const app = new Vue({
                             }
 
                             // Drive robot to closest unkown tile
-                            ws.send(JSON.stringify({
+                            websocket.send(JSON.stringify({
                                 type: 'new_direction',
                                 data: {
                                     robot_id: robot.id,
@@ -129,14 +116,14 @@ const app = new Vue({
                 for (const robot of this.robots) {
                     if (robot.directions.length == 0) {
                         // Drive robot to closest unkown tile
-                        ws.send(JSON.stringify({
+                        websocket.send(JSON.stringify({
                             type: 'new_direction',
                             data: {
                                 robot_id: robot.id,
                                 direction: {
                                     id: Date.now(),
-                                    x: rand(1, MAP_WIDTH - 2),
-                                    y: rand(1, MAP_HEIGHT - 2)
+                                    x: rand(1, this.mapWidth - 2),
+                                    y: rand(1, this.mapHeight - 2)
                                 }
                             }
                         }));
@@ -149,7 +136,7 @@ const app = new Vue({
     watch: {
         tickType(tickType, oldTickType) {
             if (this.connected && tickType != oldTickType) {
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'update_world_info',
                     data: {
                         tick_type: tickType
@@ -160,7 +147,7 @@ const app = new Vue({
 
         tickSpeed(tickSpeed, oldTickSpeed) {
             if (this.connected && tickSpeed != oldTickSpeed) {
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'update_world_info',
                     data: {
                         tick_speed: tickSpeed
@@ -172,10 +159,10 @@ const app = new Vue({
 
     methods: {
         websocketsConnect() {
-            ws = new WebSocket('ws://127.0.0.1:' + WEBSOCKETS_PORT + '/');
+            websocket = new WebSocket('ws://127.0.0.1:' + WEBSOCKETS_PORT + '/');
 
-            ws.onopen = () => {
-                ws.send(JSON.stringify({
+            websocket.onopen = () => {
+                websocket.send(JSON.stringify({
                     type: 'website_connect',
                     data: {
                         website_id: this.id
@@ -184,7 +171,7 @@ const app = new Vue({
                 this.connected = true;
             };
 
-            ws.onmessage = event => {
+            websocket.onmessage = event => {
                 if (DEBUG) {
                     console.log('Server message: ' + event.data);
                 }
@@ -223,13 +210,15 @@ const app = new Vue({
                     this.tickType = message.data.tick_type;
                     this.tickSpeed = message.data.tick_speed;
 
-                    for (let y = 0; y < MAP_HEIGHT; y++) {
-                        for (let x = 0; x < MAP_WIDTH; x++) {
-                            if (map[y * MAP_WIDTH + x] == TILE_UNKOWN && message.data.map[y * MAP_WIDTH + x] != TILE_UNKOWN) {
-                                this.worldUpdateTile(x, y, message.data.map[y * MAP_WIDTH + x]);
-                            }
+                    this.mapWidth = message.data.map.width;
+                    this.mapHeight = message.data.map.height;
+                    for (let y = 0; y < this.mapHeight; y++) {
+                        for (let x = 0; x < this.mapWidth; x++) {
+                            this.mapData[y * this.mapWidth + x] = message.data.map.data[y * this.mapWidth + x];
                         }
                     }
+
+                    this.startWorldSimulation();
                 }
 
                 // Update world info message
@@ -273,14 +262,14 @@ const app = new Vue({
                 }
             };
 
-            ws.onclose = () => {
+            websocket.onclose = () => {
                 this.connected = false;
             };
         },
 
         cancelDirection(robotId, directionId) {
             if (ws != undefined) {
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'cancel_direction',
                     data: {
                         robot_id: robotId,
@@ -294,7 +283,7 @@ const app = new Vue({
 
         tick() {
             if (this.tickType == TICK_MANUAL) {
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'world_tick',
                     data: {}
                 }));
@@ -303,7 +292,7 @@ const app = new Vue({
 
         sendFormSubmit() {
             if (ws != undefined) {
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'new_direction',
                     data: {
                         robot_id: this.sendForm.robot_id,
@@ -321,7 +310,7 @@ const app = new Vue({
             if (ws != undefined) {
                 const directionId = Date.now();
 
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'new_direction',
                     data: {
                         robot_id: this.pickupForm.robot_id,
@@ -333,7 +322,7 @@ const app = new Vue({
                     }
                 }));
 
-                ws.send(JSON.stringify({
+                websocket.send(JSON.stringify({
                     type: 'new_direction',
                     data: {
                         robot_id: this.pickupForm.robot_id,
@@ -348,11 +337,11 @@ const app = new Vue({
         },
 
         worldUpdateTile(x, y, type) {
-            if (type != map[y * MAP_WIDTH + x]) {
-                map[y * MAP_WIDTH + x] = type;
+            if (type != this.mapData[y * this.mapWidth + x]) {
+                this.mapData[y * this.mapWidth + x] = type;
 
                 if (mapMeshes.length > 0) {
-                    mapMeshesGroup.remove(mapMeshes[y * MAP_WIDTH + x]);
+                    mapMeshesGroup.remove(mapMeshes[y * this.mapWidth + x]);
 
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
@@ -365,15 +354,14 @@ const app = new Vue({
                     if (type == TILE_CHEST) material = chestMaterial;
                     if (type == TILE_WALL) material = wallMaterial;
 
-
                     const tileMesh = new THREE.Mesh(geometry, material);
-                    tileMesh.position.x = x - MAP_WIDTH / 2;
-                    tileMesh.position.z = y - MAP_HEIGHT / 2;
+                    tileMesh.position.x = x - this.mapWidth / 2;
+                    tileMesh.position.z = y - this.mapHeight / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
                     if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
-                    mapMeshes[y * MAP_WIDTH + x] = tileMesh;
+                    mapMeshes[y * this.mapWidth + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
                 }
             }
@@ -389,13 +377,13 @@ const app = new Vue({
                         .to({ x: x, y: y}, this.tickSpeed)
                         .easing(TWEEN.Easing.Quadratic.Out)
                         .onUpdate(() => {
-                            robotsGroups[robot.id - 1].position.x = coords.x - MAP_WIDTH / 2;
-                            robotsGroups[robot.id - 1].position.z = coords.y - MAP_HEIGHT / 2;
+                            robotsGroups[robot.id - 1].position.x = coords.x - this.mapWidth / 2;
+                            robotsGroups[robot.id - 1].position.z = coords.y - this.mapHeight / 2;
                         })
                         .start();
                 } else {
-                    robotsGroups[robot.id - 1].position.x = x - MAP_WIDTH / 2;
-                    robotsGroups[robot.id - 1].position.z = y - MAP_HEIGHT / 2;
+                    robotsGroups[robot.id - 1].position.x = x - this.mapWidth / 2;
+                    robotsGroups[robot.id - 1].position.z = y - this.mapHeight / 2;
                 }
 
                 robotsGroups[robot.id - 1].visible = true;
@@ -405,12 +393,12 @@ const app = new Vue({
             robot.y = y;
         },
 
-        worldSimulation() {
+        startWorldSimulation() {
             // 3D Map Simulation
             const scene = new THREE.Scene();
 
             const camera = new THREE.PerspectiveCamera( 75, window.innerWidth / window.innerHeight, 0.1, 1000 );
-            camera.position.y = MAP_WIDTH;
+            camera.position.y = this.mapWidth;
 
             const renderer = new THREE.WebGLRenderer({ canvas: document.getElementById('canvas') });
             renderer.setClearColor(0x87ceeb);
@@ -444,9 +432,9 @@ const app = new Vue({
             chestMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/chest.jpg') });
             wallMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/wall.jpg') });
 
-            for (let y = 0; y < MAP_HEIGHT; y++) {
-                for (let x = 0; x < MAP_WIDTH; x++) {
-                    const type = map[y * MAP_WIDTH + x];
+            for (let y = 0; y < this.mapHeight; y++) {
+                for (let x = 0; x < this.mapWidth; x++) {
+                    const type = this.mapData[y * this.mapWidth + x];
 
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
@@ -460,13 +448,13 @@ const app = new Vue({
                     if (type == TILE_WALL) material = wallMaterial;
 
                     const tileMesh = new THREE.Mesh(geometry, material);
-                    tileMesh.position.x = x - MAP_WIDTH / 2;
-                    tileMesh.position.z = y - MAP_HEIGHT / 2;
+                    tileMesh.position.x = x - this.mapWidth / 2;
+                    tileMesh.position.z = y - this.mapHeight / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
                     if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
-                    mapMeshes[y * MAP_WIDTH + x] = tileMesh;
+                    mapMeshes[y * this.mapWidth + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
                 }
             }
@@ -479,8 +467,8 @@ const app = new Vue({
             for (const robot of this.robots) {
                 const robotGroup = new THREE.Group();
                 if (robot.x != undefined && robot.y != undefined) {
-                    robotGroup.position.x = robot.x - MAP_WIDTH / 2;
-                    robotGroup.position.z = robot.y - MAP_HEIGHT / 2;
+                    robotGroup.position.x = robot.x - this.mapWidth / 2;
+                    robotGroup.position.z = robot.y - this.mapHeight / 2;
                 } else {
                     robotGroup.visible = false;
                 }
@@ -524,6 +512,5 @@ const app = new Vue({
 
     created() {
         this.websocketsConnect();
-        this.worldSimulation();
     }
 });

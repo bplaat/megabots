@@ -12,53 +12,39 @@ WEBSOCKETS_PORT = 8080
 
 ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
 
-MAP_WIDTH = 24
-MAP_HEIGHT = 24
-
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
 
-# Init real world
-realMap = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
-for y in range(MAP_HEIGHT):
-    for x in range(MAP_WIDTH):
-        if x == 0 or y == 0 or x == MAP_WIDTH - 1 or y == MAP_HEIGHT - 1:
-            realMap[y * MAP_WIDTH + x] = TILE_WALL
-        elif (
-            (x == 1 and y == 1) or
-            (x == MAP_WIDTH - 2 and y == 1) or
-            (x == 1 and y == MAP_HEIGHT - 2) or
-            (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
-        ):
-            realMap[y * MAP_WIDTH + x] = TILE_FLOOR
-        else:
-            if (x + y) % 3 or x == 1 or y == 1 or x == MAP_WIDTH - 2 or y == MAP_HEIGHT - 2:
-                realMap[y * MAP_WIDTH + x] = TILE_FLOOR
-            else:
-                realMap[y * MAP_WIDTH + x] = TILE_CHEST
+# Load map from file
+mapFile = open("map.json", "r")
+mapFileData = json.loads(mapFile.read())
+mapWidth = mapFileData["width"]
+mapHeight = mapFileData["height"]
+mapData = mapFileData["data"]
+mapFile.close()
 
-# Init square map with robots in corners and all around wall rest unkown
-map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
-for y in range(MAP_HEIGHT):
-    for x in range(MAP_WIDTH):
-        if x == 0 or y == 0 or x == MAP_WIDTH - 1 or y == MAP_HEIGHT - 1:
-            map[y * MAP_WIDTH + x] = TILE_WALL
+# Init visible map which is unkown except wall border
+visibleMapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
+for y in range(mapHeight):
+    for x in range(mapWidth):
+        if x == 0 or y == 0 or x == mapWidth - 1 or y == mapHeight - 1:
+            visibleMapData[y * mapWidth + x] = TILE_WALL
         if (
             (x == 1 and y == 1) or
-            (x == MAP_WIDTH - 2 and y == 1) or
-            (x == 1 and y == MAP_HEIGHT - 2) or
-            (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
+            (x == mapWidth - 2 and y == 1) or
+            (x == 1 and y == mapHeight - 2) or
+            (x == mapWidth - 2 and y == mapHeight - 2)
         ):
-            map[y * MAP_WIDTH + x] = TILE_FLOOR
+            visibleMapData[y * mapWidth + x] = TILE_FLOOR
 
 # Robots start in the corners
 robots = [
     { "id": 1, "x": 1, "y": 1, "directions": [], "connected": False },
-    { "id": 2, "x": MAP_WIDTH - 2, "y": 1, "directions": [], "connected": False },
-    { "id": 3, "x": 1, "y": MAP_HEIGHT - 2, "directions": [], "connected": False },
-    { "id": 4, "x": MAP_WIDTH - 2, "y": MAP_HEIGHT - 2, "directions": [], "connected": False }
+    { "id": 2, "x": mapWidth - 2, "y": 1, "directions": [], "connected": False },
+    { "id": 3, "x": 1, "y": mapHeight - 2, "directions": [], "connected": False },
+    { "id": 4, "x": mapWidth - 2, "y": mapHeight - 2, "directions": [], "connected": False }
 ]
 
 # Simple log function
@@ -113,9 +99,9 @@ async def websocketConnection():
 
             # World info message
             if message["type"] == "world_info":
-                for i in range(MAP_HEIGHT * MAP_WIDTH):
-                    if map[i] == TILE_UNKOWN and message["data"]["map"][i] != TILE_UNKOWN:
-                        map[i] = message["data"]["map"][i]
+                for i in range(mapHeight * mapWidth):
+                    if visibleMapData[i] == TILE_UNKOWN and message["data"]["map"]["data"][i] != TILE_UNKOWN:
+                        visibleMapData[i] = message["data"]["map"]["data"][i]
 
             # New Direction message
             if message["type"] == "new_direction":
@@ -143,14 +129,14 @@ async def websocketConnection():
 
                     # Read sensors from real map and write back to map
                     mapUpdates = []
-                    map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] - 1)]
-                    mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] })
-                    map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] + 1)]
-                    mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] })
-                    map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] - 1) * MAP_WIDTH + robot["x"]]
-                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] })
-                    map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] + 1) * MAP_WIDTH + robot["x"]]
-                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] })
+                    visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
+                    mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
+                    visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
+                    mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
+                    visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
+                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
+                    visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
+                    mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
 
                     # Calculate fastest path to destination
                     # Simple ineffienct Breadth First Search Algorithm for more info:
@@ -165,15 +151,15 @@ async def websocketConnection():
                             neighbors.append({ "x": point["x"] - 1, "y": point["y"] })
                         if point["y"] > 0:
                             neighbors.append({ "x": point["x"], "y": point["y"] - 1 })
-                        if point["x"] < MAP_WIDTH - 1:
+                        if point["x"] < mapWidth - 1:
                             neighbors.append({ "x": point["x"] + 1, "y": point["y"] })
-                        if point["y"] < MAP_HEIGHT - 1:
+                        if point["y"] < mapHeight - 1:
                             neighbors.append({ "x": point["x"], "y": point["y"] + 1 })
                         return neighbors
 
                     frontier = []
                     frontier.append({ "x": old_robot_x, "y": old_robot_y })
-                    cameFrom = [None] * (MAP_HEIGHT * MAP_WIDTH)
+                    cameFrom = [None] * (mapHeight * mapWidth)
 
                     while len(frontier) > 0:
                         current = frontier[0]
@@ -189,11 +175,11 @@ async def websocketConnection():
                                     colliding = True
                                     break
 
-                            tileType = map[neighbor["y"] * MAP_WIDTH + neighbor["x"]]
+                            tileType = visibleMapData[neighbor["y"] * mapWidth + neighbor["x"]]
                             if not colliding and (tileType == TILE_FLOOR or tileType == TILE_UNKOWN):
-                                if cameFrom[neighbor["y"] * MAP_WIDTH + neighbor["x"]] == None:
+                                if cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] == None:
                                     frontier.append(neighbor)
-                                    cameFrom[neighbor["y"] * MAP_WIDTH + neighbor["x"]] = current
+                                    cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] = current
 
                     current = destination
                     path = []
@@ -219,7 +205,7 @@ async def websocketConnection():
                             break
 
                         path.append(current)
-                        current = cameFrom[current["y"] * MAP_WIDTH + current["x"]]
+                        current = cameFrom[current["y"] * mapWidth + current["x"]]
                     path.reverse()
 
                     # Do one step in the right direction if there is a path
@@ -228,14 +214,14 @@ async def websocketConnection():
                         robot["y"] = path[0]["y"]
 
                         # Read sensors from real map and write back to map of the new position
-                        map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] - 1)]
-                        mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] - 1)] })
-                        map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] = realMap[robot["y"] * MAP_WIDTH + (robot["x"] + 1)]
-                        mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": map[robot["y"] * MAP_WIDTH + (robot["x"] + 1)] })
-                        map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] - 1) * MAP_WIDTH + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": map[(robot["y"] - 1) * MAP_WIDTH + robot["x"]] })
-                        map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] = realMap[(robot["y"] + 1) * MAP_WIDTH + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": map[(robot["y"] + 1) * MAP_WIDTH + robot["x"]] })
+                        visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
+                        mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
+                        visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
+                        mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
+                        visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
+                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
+                        visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
+                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
 
                         # When we are at the destination delete direction
                         if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
@@ -273,7 +259,7 @@ async def websocketConnection():
                     otherRobot["y"] = message["data"]["robot_y"]
 
                     for mapUpdate in message["data"]["map"]:
-                        map[mapUpdate["y"] * MAP_WIDTH + mapUpdate["x"]] = mapUpdate["type"]
+                        visibleMapData[mapUpdate["y"] * mapWidth + mapUpdate["x"]] = mapUpdate["type"]
 
                     log("Tick done from Robot " + str(otherRobot["id"]))
 

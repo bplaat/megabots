@@ -99,7 +99,11 @@ TICK_AUTO = 1
     "data": {
         "tick_type": 0,
         "tick_speed": 500,
-        "map": [ 1, 1, 2... ]
+        "map": {
+            "width": 16,
+            "height": 16,
+            "data": [ 1, 1, 2... ]
+        }
     }
 }
 ```

@@ -26,31 +26,35 @@ WEBSOCKETS_PORT = 8080
 TICK_MANUAL = 0
 TICK_AUTO = 1
 
-MAP_WIDTH = 24
-MAP_HEIGHT = 24
-
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
 TILE_WALL = 3
+
+# Load map from file
+mapFile = open("map.json", "r")
+mapFileData = json.loads(mapFile.read())
+mapWidth = mapFileData["width"]
+mapHeight = mapFileData["height"]
+mapFile.close()
 
 # Server tick information
 tickType = TICK_MANUAL
 tickSpeed = 200
 
 # Init square map with robots in corners and all around wall rest unkown
-map = [TILE_UNKOWN] * (MAP_HEIGHT * MAP_WIDTH)
-for y in range(MAP_HEIGHT):
-    for x in range(MAP_WIDTH):
-        if x == 0 or y == 0 or x == MAP_WIDTH - 1 or y == MAP_HEIGHT - 1:
-            map[y * MAP_WIDTH + x] = TILE_WALL
+mapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
+for y in range(mapHeight):
+    for x in range(mapWidth):
+        if x == 0 or y == 0 or x == mapWidth - 1 or y == mapHeight - 1:
+            mapData[y * mapWidth + x] = TILE_WALL
         if (
             (x == 1 and y == 1) or
-            (x == MAP_WIDTH - 2 and y == 1) or
-            (x == 1 and y == MAP_HEIGHT - 2) or
-            (x == MAP_WIDTH - 2 and y == MAP_HEIGHT - 2)
+            (x == mapWidth - 2 and y == 1) or
+            (x == 1 and y == mapHeight - 2) or
+            (x == mapWidth - 2 and y == mapHeight - 2)
         ):
-            map[y * MAP_WIDTH + x] = TILE_FLOOR
+            mapData[y * mapWidth + x] = TILE_FLOOR
 
 # Robots start in the corners
 robots = [
@@ -122,7 +126,11 @@ async def websocketConnection(websocket, path):
                 "data": {
                     "tick_type": tickType,
                     "tick_speed": tickSpeed,
-                    "map": map
+                    "map": {
+                        "width": mapWidth,
+                        "height": mapHeight,
+                        "data": mapData
+                    }
                 }
             }))
 
@@ -187,7 +195,11 @@ async def websocketConnection(websocket, path):
                 "data": {
                     "tick_type": tickType,
                     "tick_speed": tickSpeed,
-                    "map": map
+                    "map": {
+                        "width": mapWidth,
+                        "height": mapHeight,
+                        "data": mapData
+                    }
                 }
             }))
 
@@ -342,7 +354,7 @@ async def websocketConnection(websocket, path):
 
             mapUpdates = []
             for mapUpdate in message["data"]["map"]:
-                map[mapUpdate["y"] * MAP_HEIGHT + mapUpdate["x"]] = mapUpdate["type"]
+                mapData[mapUpdate["y"] * mapHeight + mapUpdate["x"]] = mapUpdate["type"]
                 mapUpdates.append({
                     "x": mapUpdate["x"],
                     "y": mapUpdate["y"],
