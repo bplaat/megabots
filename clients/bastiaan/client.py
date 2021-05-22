@@ -141,104 +141,154 @@ async def websocketConnection():
                     visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
                     mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
 
-                    # Calculate fastest path to destination
-                    # Simple ineffienct Breadth First Search Algorithm for more info:
-                    # https://www.redblobgames.com/pathfinding/a-star/introduction.html
-                    old_robot_x = robot["x"]
-                    old_robot_y = robot["y"]
+                    # Check if we are not already at destination
                     destination = { "x": int(robot["directions"][0]["x"]), "y": int(robot["directions"][0]["y"]) }
-
-                    def tileNeighbors(point):
-                        neighbors = []
-                        if point["x"] > 0:
-                            neighbors.append({ "x": point["x"] - 1, "y": point["y"] })
-                        if point["y"] > 0:
-                            neighbors.append({ "x": point["x"], "y": point["y"] - 1 })
-                        if point["x"] < mapWidth - 1:
-                            neighbors.append({ "x": point["x"] + 1, "y": point["y"] })
-                        if point["y"] < mapHeight - 1:
-                            neighbors.append({ "x": point["x"], "y": point["y"] + 1 })
-                        random.shuffle(neighbors)
-                        return neighbors
-
-                    frontier = []
-                    frontier.append({ "x": old_robot_x, "y": old_robot_y })
-                    cameFrom = [None] * (mapHeight * mapWidth)
-
-                    while len(frontier) > 0:
-                        current = frontier[0]
-                        del frontier[0]
-
-                        if current["x"] == destination["x"] and current["y"] == destination["y"]:
-                            break
-
-                        for neighbor in tileNeighbors(current):
-                            colliding = False
-                            for otherRobot in robots:
-                                if otherRobot["x"] == neighbor["x"] and otherRobot["y"] == neighbor["y"]:
-                                    colliding = True
-                                    break
-
-                            tileType = visibleMapData[neighbor["y"] * mapWidth + neighbor["x"]]
-                            if not colliding and (tileType == TILE_FLOOR or tileType == TILE_UNKOWN):
-                                if cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] == None:
-                                    frontier.append(neighbor)
-                                    cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] = current
-
-                    current = destination
-                    path = []
-                    while True:
-                        # Check for an imposible path
-                        if current == None:
-                            # Cancel direction because imposible
-                            await websocket.send(json.dumps({
-                                "type": "cancel_direction",
-                                "data": {
-                                    "robot_id": ROBOT_ID,
-                                    "direction": {
-                                        "id": robot["directions"][0]["id"]
-                                    }
+                    if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
+                        # Cancel direction because complete
+                        await websocket.send(json.dumps({
+                            "type": "cancel_direction",
+                            "data": {
+                                "robot_id": ROBOT_ID,
+                                "direction": {
+                                    "id": robot["directions"][0]["id"]
                                 }
-                            }))
+                            }
+                        }))
+                    else:
+                        # Calculate fastest path to destination
+                        # Simple ineffienct Breadth First Search Algorithm for more info:
+                        # https://www.redblobgames.com/pathfinding/a-star/introduction.html
+                        old_robot_x = robot["x"]
+                        old_robot_y = robot["y"]
 
-                            path = []
-                            break
+                        def tileNeighbors(point):
+                            neighbors = []
+                            if point["x"] > 0:
+                                neighbors.append({ "x": point["x"] - 1, "y": point["y"] })
+                            if point["y"] > 0:
+                                neighbors.append({ "x": point["x"], "y": point["y"] - 1 })
+                            if point["x"] < mapWidth - 1:
+                                neighbors.append({ "x": point["x"] + 1, "y": point["y"] })
+                            if point["y"] < mapHeight - 1:
+                                neighbors.append({ "x": point["x"], "y": point["y"] + 1 })
+                            random.shuffle(neighbors)
+                            return neighbors
 
-                        # Check if we are at the current robot position
-                        if current["x"] == old_robot_x and current["y"] == old_robot_y:
-                            break
+                        # Calculate fastest path to destination excluding other robot tiles
+                        frontier = []
+                        frontier.append({ "x": old_robot_x, "y": old_robot_y })
+                        cameFrom = [None] * (mapHeight * mapWidth)
 
-                        path.append(current)
-                        current = cameFrom[current["y"] * mapWidth + current["x"]]
-                    path.reverse()
+                        while len(frontier) > 0:
+                            current = frontier[0]
+                            del frontier[0]
 
-                    # Do one step in the right direction if there is a path
-                    if len(path) > 0:
-                        robot["x"] = path[0]["x"]
-                        robot["y"] = path[0]["y"]
+                            if current["x"] == destination["x"] and current["y"] == destination["y"]:
+                                break
 
-                        # Read sensors from real map and write back to map of the new position
-                        visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
-                        mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
-                        visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
-                        mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
-                        visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
-                        visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
+                            for neighbor in tileNeighbors(current):
+                                colliding = False
+                                for otherRobot in robots:
+                                    if otherRobot["x"] == neighbor["x"] and otherRobot["y"] == neighbor["y"]:
+                                        colliding = True
+                                        break
 
-                        # When we are at the destination delete direction
-                        if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
-                            # Cancel direction because complete
-                            await websocket.send(json.dumps({
-                                "type": "cancel_direction",
-                                "data": {
-                                    "robot_id": ROBOT_ID,
-                                    "direction": {
-                                        "id": robot["directions"][0]["id"]
+                                tileType = visibleMapData[neighbor["y"] * mapWidth + neighbor["x"]]
+                                if not colliding and (tileType == TILE_FLOOR or tileType == TILE_UNKOWN):
+                                    if cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] == None:
+                                        frontier.append(neighbor)
+                                        cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] = current
+
+                        current = destination
+                        path = []
+                        while True:
+                            # If the path is imposible
+                            if current == None:
+                                # Check if the path is realy impossible by checking path including other robots tiles
+                                frontier = []
+                                frontier.append({ "x": old_robot_x, "y": old_robot_y })
+                                cameFrom = [None] * (mapHeight * mapWidth)
+
+                                while len(frontier) > 0:
+                                    current = frontier[0]
+                                    del frontier[0]
+
+                                    if current["x"] == destination["x"] and current["y"] == destination["y"]:
+                                        break
+
+                                    for neighbor in tileNeighbors(current):
+                                        tileType = visibleMapData[neighbor["y"] * mapWidth + neighbor["x"]]
+                                        if tileType == TILE_FLOOR or tileType == TILE_UNKOWN:
+                                            if cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] == None:
+                                                frontier.append(neighbor)
+                                                cameFrom[neighbor["y"] * mapWidth + neighbor["x"]] = current
+
+                                current = destination
+                                path = []
+                                pathPosible = None
+                                while True:
+                                    # Path is imposible
+                                    if current == None:
+                                        pathPosible = False
+                                        break
+
+                                    # Path is posible wait for other robots to move
+                                    if current["x"] == old_robot_x and current["y"] == old_robot_y:
+                                        pathPosible = True
+                                        break
+
+                                    path.append(current)
+                                    current = cameFrom[current["y"] * mapWidth + current["x"]]
+
+                                # Cancel direction because imposible
+                                if not pathPosible:
+                                    await websocket.send(json.dumps({
+                                        "type": "cancel_direction",
+                                        "data": {
+                                            "robot_id": ROBOT_ID,
+                                            "direction": {
+                                                "id": robot["directions"][0]["id"]
+                                            }
+                                        }
+                                    }))
+
+                                path = []
+                                break
+
+                            # Check if we are at the current robot position
+                            if current["x"] == old_robot_x and current["y"] == old_robot_y:
+                                break
+
+                            path.append(current)
+                            current = cameFrom[current["y"] * mapWidth + current["x"]]
+
+                        # Do one step in the right direction if there is a path
+                        if len(path) > 0:
+                            robot["x"] = path[len(path) - 1]["x"]
+                            robot["y"] = path[len(path) - 1]["y"]
+
+                            # Read sensors from real map and write back to map of the new position
+                            visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
+                            mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
+                            visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
+                            mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
+                            visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
+                            mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
+                            visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
+                            mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
+
+                            # When we are at the destination delete direction
+                            if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
+                                # Cancel direction because complete
+                                await websocket.send(json.dumps({
+                                    "type": "cancel_direction",
+                                    "data": {
+                                        "robot_id": ROBOT_ID,
+                                        "direction": {
+                                            "id": robot["directions"][0]["id"]
+                                        }
                                     }
-                                }
-                            }))
+                                }))
 
                     # Send tick done message
                     await websocket.send(json.dumps({

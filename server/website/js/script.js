@@ -53,8 +53,8 @@ const app = new Vue({
             weight: 250,
             robot_x1: 1,
             robot_y1: 1,
-            robot_x2: 2,
-            robot_y2: 2
+            robot_x2: 10,
+            robot_y2: 1
         },
 
         activeProgram: 'Discover',
@@ -165,15 +165,21 @@ const app = new Vue({
             Random() {
                 for (const robot of this.robots) {
                     if (robot.directions.length == 0) {
-                        // Drive robot to closest unkown tile
+                        // Drive robot to a random floor tile
+                        let x, y;
+                        do {
+                            x = rand(1, this.mapWidth - 2);
+                            y = rand(1, this.mapHeight - 2);
+                        } while (this.mapData[y * this.mapWidth + x] != TILE_FLOOR);
+
                         websocket.send(JSON.stringify({
                             type: 'new_direction',
                             data: {
                                 robot_id: robot.id,
                                 direction: {
                                     id: Date.now(),
-                                    x: rand(1, this.mapWidth - 2),
-                                    y: rand(1, this.mapHeight - 2)
+                                    x: x,
+                                    y: y
                                 }
                             }
                         }));
@@ -365,7 +371,8 @@ const app = new Vue({
         pickupFormSubmit() {
             if (websocket != undefined) {
                 // Check if there is a robot with the lift that is waiting
-                for (const robot of this.robots) {
+                const randomRobots = this.robots.slice().sort(() => (Math.random() >= 0.5) ? 1 : -1);
+                for (const robot of randomRobots) {
                     if (robot.directions.length == 0 && robot.lift >= this.pickupForm.weight) {
                         const directionId = Date.now();
 
@@ -398,7 +405,7 @@ const app = new Vue({
                 }
 
                 // Else queue order for the first robot with the lift
-                for (const robot of this.robots) {
+                for (const robot of randomRobots) {
                     if (robot.lift >= this.pickupForm.weight) {
                         const directionId = Date.now();
 
