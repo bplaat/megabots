@@ -4,6 +4,7 @@ import sys
 import asyncio
 import websockets
 import json
+import random
 
 # Constants
 DEBUG = False
@@ -41,10 +42,10 @@ for y in range(mapHeight):
 
 # Robots start in the corners
 robots = [
-    { "id": 1, "x": 1, "y": 1, "directions": [], "connected": False },
-    { "id": 2, "x": mapWidth - 2, "y": 1, "directions": [], "connected": False },
-    { "id": 3, "x": 1, "y": mapHeight - 2, "directions": [], "connected": False },
-    { "id": 4, "x": mapWidth - 2, "y": mapHeight - 2, "directions": [], "connected": False }
+    { "id": 1, "x": 1, "y": 1, "lift": 200, "directions": [], "connected": False },
+    { "id": 2, "x": mapWidth - 2, "y": 1, "lift": 300, "directions": [], "connected": False },
+    { "id": 3, "x": 1, "y": mapHeight - 2, "lift": 500, "directions": [], "connected": False },
+    { "id": 4, "x": mapWidth - 2, "y": mapHeight - 2, "lift": 250, "directions": [], "connected": False }
 ]
 
 # Simple log function
@@ -65,6 +66,7 @@ async def websocketConnection():
                 "robot_id": ROBOT_ID,
                 "robot_x": robot["x"],
                 "robot_y": robot["y"],
+                "robot_lift": robot["lift"],
                 "directions": []
             }
         }))
@@ -81,6 +83,7 @@ async def websocketConnection():
                 otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                 otherRobot["x"] = message["data"]["robot_x"]
                 otherRobot["y"] = message["data"]["robot_y"]
+                otherRobot["lift"] = message["data"]["robot_lift"]
                 otherRobot["directions"].clear()
                 for direction in message["data"]["directions"]:
                     otherRobot["directions"].append({
@@ -155,6 +158,7 @@ async def websocketConnection():
                             neighbors.append({ "x": point["x"] + 1, "y": point["y"] })
                         if point["y"] < mapHeight - 1:
                             neighbors.append({ "x": point["x"], "y": point["y"] + 1 })
+                        random.shuffle(neighbors)
                         return neighbors
 
                     frontier = []

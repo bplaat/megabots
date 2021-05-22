@@ -4,7 +4,15 @@
 
 ./server/server.py &
 python -m http.server 8081 --directory server/website &
-start http://localhost:8081/ &
+
+if [ "$(uname -s)" == "Linux" ]; then
+    xdg-open http://localhost:8081/ &
+    disown
+else
+    start http://localhost:8081/
+fi
+
+sleep 0.5
 
 ./clients/bastiaan/client.py 1 &
 ./clients/bastiaan/client.py 2 &

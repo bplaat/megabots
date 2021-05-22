@@ -56,6 +56,7 @@ loop {
         "robot_id": 1,
         "robot_x": 3,
         "robot_y": 3,
+        "robot_lift": 200,
         "directions": [
             {
                 "id": 1621529804034,

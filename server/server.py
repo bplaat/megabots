@@ -58,10 +58,10 @@ for y in range(mapHeight):
 
 # Robots start in the corners
 robots = [
-    { "id": 1, "x": None, "y": None, "directions": [], "websocket": None },
-    { "id": 2, "x": None, "y": None, "directions": [], "websocket": None },
-    { "id": 3, "x": None, "y": None, "directions": [], "websocket": None },
-    { "id": 4, "x": None, "y": None, "directions": [], "websocket": None }
+    { "id": 1, "x": None, "y": None, "lift": None, "directions": [], "websocket": None },
+    { "id": 2, "x": None, "y": None, "lift": None, "directions": [], "websocket": None },
+    { "id": 3, "x": None, "y": None, "lift": None, "directions": [], "websocket": None },
+    { "id": 4, "x": None, "y": None, "lift": None, "directions": [], "websocket": None }
 ]
 
 # Website connections data
@@ -110,6 +110,7 @@ async def websocketConnection(websocket, path):
             robot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
             robot["x"] = message["data"]["robot_x"]
             robot["y"] = message["data"]["robot_y"]
+            robot["lift"] = message["data"]["robot_lift"]
             robot["directions"].clear()
             for direction in message["data"]["directions"]:
                 robot["directions"].append({
@@ -144,6 +145,7 @@ async def websocketConnection(websocket, path):
                             "robot_id": otherRobot["id"],
                             "robot_x": otherRobot["x"],
                             "robot_y": otherRobot["y"],
+                            "robot_lift": otherRobot["lift"],
                             "directions": otherRobot["directions"]
                         }
                     }))
@@ -155,6 +157,7 @@ async def websocketConnection(websocket, path):
                             "robot_id": robot["id"],
                             "robot_x": robot["x"],
                             "robot_y": robot["y"],
+                            "robot_lift": robot["lift"],
                             "directions": robot["directions"]
                         }
                     }))
@@ -176,6 +179,7 @@ async def websocketConnection(websocket, path):
                         "robot_id": robot["id"],
                         "robot_x": robot["x"],
                         "robot_y": robot["y"],
+                        "robot_lift": robot["lift"],
                         "directions": robot["directions"]
                     }
                 }))
@@ -213,6 +217,7 @@ async def websocketConnection(websocket, path):
                             "robot_id": robot["id"],
                             "robot_x": robot["x"],
                             "robot_y": robot["y"],
+                            "robot_lift": robot["lift"],
                             "directions": robot["directions"]
                         }
                     }))

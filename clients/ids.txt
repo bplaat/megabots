@@ -1,4 +1,4 @@
-Robot 1 (Top left corner) (Red) = Bastiaan
-Robot 2 (Top right corner) (Green) = Eki
-Robot 3 (Bottom left corner) (Yellow) = Maarten
-Robot 4 (Bottom right corner) (Blue) = Rowdey
+Robot 1 (Top left corner) (color = Red, lift = 200) = Bastiaan
+Robot 2 (Top right corner) (color = Green, lift = 300) = Eki
+Robot 3 (Bottom left corner) (color = Yellow, lift = 500) = Maarten
+Robot 4 (Bottom right corner) (color = Blue, lift = 250) = Rowdey

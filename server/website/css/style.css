@@ -17,4 +17,5 @@ canvas{display:block}
 .robots{width:18vw;max-height:75vh;overflow-y:auto}
 .controls{width:22vw}
 .number-input{width:48px}
+.weight-input{width:72px}
 .footer{text-align:center;padding:8px 16px}

@@ -36,10 +36,10 @@ const app = new Vue({
         mapData: [],
 
         robots: [
-            { id: 1, color: 0xff0000, x: undefined, y: undefined, directions: [], connected: false },
-            { id: 2, color: 0x00ff00, x: undefined, y: undefined, directions: [], connected: false },
-            { id: 3, color: 0xffff00, x: undefined, y: undefined, directions: [], connected: false },
-            { id: 4, color: 0x0000ff, x: undefined, y: undefined, directions: [], connected: false }
+            { id: 1, color: 0xff0000, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
+            { id: 2, color: 0x00ff00, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
+            { id: 3, color: 0xffff00, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
+            { id: 4, color: 0x0000ff, x: undefined, y: undefined, lift: undefined, directions: [], connected: false }
         ],
 
         sendForm: {
@@ -49,7 +49,7 @@ const app = new Vue({
         },
 
         pickupForm: {
-            robot_id: 1,
+            weight: 250,
             robot_x1: 1,
             robot_y1: 1,
             robot_x2: 2,
@@ -109,6 +109,7 @@ const app = new Vue({
                                     neighbors.push({ "x": point.x + 1, "y": point.y });
                                 if (point.y < this.mapHeight - 1)
                                     neighbors.push({ "x": point.x, "y": point.y + 1 });
+                                neighbors.sort(() => (Math.random() >= 0.5) ? 1 : -1);
                                 return neighbors;
                             };
 
@@ -133,6 +134,7 @@ const app = new Vue({
 
                                     // Remove tile from list
                                     unkownTiles = unkownTiles.filter(tile => !(tile.x == current.x && tile.y == current.y));
+                                    unkownMap[current.y * this.mapWidth + current.x] = false;
 
                                     break;
                                 }
@@ -229,6 +231,7 @@ const app = new Vue({
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     this.worldUpdateTile(message.data.robot_x, message.data.robot_y, TILE_FLOOR);
                     this.worldMoveRobot(robot.id, message.data.robot_x, message.data.robot_y);
+                    robot.lift = message.data.robot_lift;
 
                     robot.directions = [];
                     for (const direction of message.data.directions) {
@@ -359,31 +362,71 @@ const app = new Vue({
 
         pickupFormSubmit() {
             if (websocket != undefined) {
-                const directionId = Date.now();
+                // Check if there is a robot with the lift that is waiting
+                for (const robot of this.robots) {
+                    if (robot.directions.length == 0 && robot.lift >= this.pickupForm.weight) {
+                        const directionId = Date.now();
 
-                websocket.send(JSON.stringify({
-                    type: 'new_direction',
-                    data: {
-                        robot_id: this.pickupForm.robot_id,
-                        direction: {
-                            id: directionId,
-                            x: this.pickupForm.robot_x1,
-                            y: this.pickupForm.robot_y1
-                        }
-                    }
-                }));
+                        websocket.send(JSON.stringify({
+                            type: 'new_direction',
+                            data: {
+                                robot_id: robot.id,
+                                direction: {
+                                    id: directionId,
+                                    x: this.pickupForm.robot_x1,
+                                    y: this.pickupForm.robot_y1
+                                }
+                            }
+                        }));
 
-                websocket.send(JSON.stringify({
-                    type: 'new_direction',
-                    data: {
-                        robot_id: this.pickupForm.robot_id,
-                        direction: {
-                            id: directionId + 1,
-                            x: this.pickupForm.robot_x2,
-                            y: this.pickupForm.robot_y2
-                        }
+                        websocket.send(JSON.stringify({
+                            type: 'new_direction',
+                            data: {
+                                robot_id: robot.id,
+                                direction: {
+                                    id: directionId + 1,
+                                    x: this.pickupForm.robot_x2,
+                                    y: this.pickupForm.robot_y2
+                                }
+                            }
+                        }));
+
+                        return;
                     }
-                }));
+                }
+
+                // Else queue order for the first robot with the lift
+                for (const robot of this.robots) {
+                    if (robot.lift >= this.pickupForm.weight) {
+                        const directionId = Date.now();
+
+                        websocket.send(JSON.stringify({
+                            type: 'new_direction',
+                            data: {
+                                robot_id: robot.id,
+                                direction: {
+                                    id: directionId,
+                                    x: this.pickupForm.robot_x1,
+                                    y: this.pickupForm.robot_y1
+                                }
+                            }
+                        }));
+
+                        websocket.send(JSON.stringify({
+                            type: 'new_direction',
+                            data: {
+                                robot_id: robot.id,
+                                direction: {
+                                    id: directionId + 1,
+                                    x: this.pickupForm.robot_x2,
+                                    y: this.pickupForm.robot_y2
+                                }
+                            }
+                        }));
+
+                        return;
+                    }
+                }
             }
         },
 

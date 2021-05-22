@@ -27,7 +27,7 @@
                 <h2>Robots</h2>
                 <ul>
                     <li v-for="robot in robots" :key="robot.id">
-                        <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} - {{ robot.connected ? 'Connected' : 'Disconnected'}}
+                        <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} - {{ robot.lift != undefined ? robot.lift : '?' }} kg - {{ robot.connected ? 'Connected' : 'Disconnected'}}
                         <ul v-if="robot.directions.length > 0">
                             <li v-for="direction, index in robot.directions" :key="direction.id">
                                 Drive to: {{ direction.x }} x {{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
@@ -81,13 +81,9 @@
 
                 <form @submit.prevent="pickupFormSubmit">
                     <p>
-                        Let
-                        <select v-model="pickupForm.robot_id">
-                            <option v-for="robot in robots" :key="robot.id" :value="robot.id">
-                                Robot {{ robot.id }}
-                            </option>
-                        </select>
-                        pickup from
+                        Pickup
+                        <input  class="weight-input" type="number" v-model="pickupForm.weight" min="1" :max="Math.max(...robots.map(robot => robot.lift))">
+                        kg from
                         <input  class="number-input" type="number" v-model="pickupForm.robot_x1" min="1" :max="mapWidth - 2">
                         x
                         <input  class="number-input" type="number" v-model="pickupForm.robot_y1" min="1" :max="mapHeight - 2">
