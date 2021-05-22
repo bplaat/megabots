@@ -12,8 +12,9 @@ const TILE_CHEST = 2;
 const TILE_WALL = 3;
 
 // App
-let websocket, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
-const mapMeshes = [], robotsGroups = [], robotDestinationGroups = [];
+let websocket, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,
+    unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
+const ledOffColor = 0x000000, mapMeshes = [], robotGroups = [];
 
 function rand (min, max) {
     return Math.floor(Math.random() * (max - min + 1)) + min;
@@ -251,9 +252,10 @@ const app = new Vue({
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = false;
 
-                    if (robotsGroups.length > 0 && robotDestinationGroups.lenght > 0) {
-                        robotsGroups[robot.id - 1].visible = false;
-                        robotDestinationGroups[robot.id - 1].visible = false;
+                    if (robotGroups.length > 0) {
+                        const robotGroup = robotGroups[robot.id - 1];
+                        robotGroup.visible = false;
+                        robotGroup.destinationGroup.visible = false;
                     }
                 }
 
@@ -463,11 +465,18 @@ const app = new Vue({
 
         worldMoveRobot(robotId, x, y) {
             const robot = this.robots.find(robot => robot.id == robotId);
+            const old_robot_x = robot.x;
+            const old_robot_y = robot.y;
             robot.x = x;
             robot.y = y;
 
-            if (robotsGroups.length > 0) {
-                const robotsGroup = robotsGroups[robot.id - 1];
+            if (robotGroups.length > 0) {
+                const robotsGroup = robotGroups[robot.id - 1];
+
+                robotsGroup.upLedMesh.material.color.setHex(robot.y - old_robot_y < 0 ? robot.color : ledOffColor);
+                robotsGroup.leftLedMesh.material.color.setHex(robot.x - old_robot_x < 0 ? robot.color : ledOffColor);
+                robotsGroup.rightLedMesh.material.color.setHex(robot.x - old_robot_x > 0 ? robot.color : ledOffColor);
+                robotsGroup.downLedMesh.material.color.setHex(robot.y - old_robot_y > 0 ? robot.color : ledOffColor);
 
                 if (robotsGroup.visible) {
                     const coords = { x: robotsGroup.position.x, y: robotsGroup.position.z };
@@ -491,11 +500,9 @@ const app = new Vue({
         },
 
         worldUpdateRobotDestination(robotId) {
-            const robot = this.robots.find(robot => robot.id == robotId);
-
-            if (robotDestinationGroups.length > 0) {
-                const robotDestinationGroup = robotDestinationGroups[robot.id - 1];
-
+            if (robotGroups.length > 0) {
+                const robot = this.robots.find(robot => robot.id == robotId);
+                const robotDestinationGroup = robotGroups[robot.id - 1].destinationGroup;
                 if (robot.directions.length > 0) {
                     robotDestinationGroup.visible = true;
                     if (robotDestinationGroup.position.x != 0 && robotDestinationGroup.position.z != 0) {
@@ -588,8 +595,8 @@ const app = new Vue({
             // Create robot meshes
             const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.99, 32);
             const robotTexure = new THREE.TextureLoader().load('/images/robot.jpg');
-            const sensorGeometry = new THREE.SphereGeometry(0.05, 32, 32);
-            const destinationGeometry = new THREE.ConeGeometry( 0.3, 0.5, 32);
+            const ledGeometry = new THREE.SphereGeometry(0.05, 32, 32);
+            const destinationArrowGeometry = new THREE.ConeGeometry(0.3, 0.5, 32);
 
             for (const robot of this.robots) {
                 // Robot group
@@ -601,44 +608,44 @@ const app = new Vue({
                     robotGroup.visible = false;
                 }
                 scene.add(robotGroup);
-                robotsGroups[robot.id - 1] = robotGroup;
+                robotGroups[robot.id - 1] = robotGroup;
 
-                const robotMaterial = new THREE.MeshBasicMaterial({ color: robot.color, map: robotTexure });
-                robotGroup.add(new THREE.Mesh(robotGeometry, robotMaterial));
+                robotGroup.add(new THREE.Mesh(robotGeometry, new THREE.MeshBasicMaterial({ color: robot.color, map: robotTexure })));
 
-                const sensorMaterial = new THREE.MeshBasicMaterial({ color: robot.color });
+                robotGroup.upLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.upLedMesh.position.y = 0.5;
+                robotGroup.upLedMesh.position.z = -0.3;
+                robotGroup.add(robotGroup.upLedMesh);
 
-                const sensorMesh1 = new THREE.Mesh(sensorGeometry, sensorMaterial);
-                sensorMesh1.position.x = -0.3;
-                robotGroup.add(sensorMesh1);
+                robotGroup.leftLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.leftLedMesh.position.x = -0.3;
+                robotGroup.leftLedMesh.position.y = 0.5;
+                robotGroup.add(robotGroup.leftLedMesh);
 
-                const sensorMesh2 = new THREE.Mesh(sensorGeometry, sensorMaterial);
-                sensorMesh2.position.x = 0.3;
-                robotGroup.add(sensorMesh2);
+                robotGroup.rightLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.rightLedMesh.position.x = 0.3;
+                robotGroup.rightLedMesh.position.y = 0.5;
+                robotGroup.add(robotGroup.rightLedMesh);
 
-                const sensorMesh3 = new THREE.Mesh(sensorGeometry, sensorMaterial);
-                sensorMesh3.position.z = -0.3;
-                robotGroup.add(sensorMesh3);
-
-                const sensorMesh4 = new THREE.Mesh(sensorGeometry, sensorMaterial);
-                sensorMesh4.position.z = 0.3;
-                robotGroup.add(sensorMesh4);
+                robotGroup.downLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.downLedMesh.position.y = 0.5;
+                robotGroup.downLedMesh.position.z = 0.3;
+                robotGroup.add(robotGroup.downLedMesh);
 
                 // Robot destination group
-                const robotDestinationGroup = new THREE.Group();
+                robotGroup.destinationGroup = new THREE.Group();
                 if (robot.directions.length > 0) {
-                    robotDestinationGroup.position.x = robot.directions[0].x - this.mapWidth / 2;
-                    robotDestinationGroup.position.z = robot.directions[0].y - this.mapHeight / 2;
+                    robotGroup.destinationGroup.position.x = robot.directions[0].x - this.mapWidth / 2;
+                    robotGroup.destinationGroup.position.z = robot.directions[0].y - this.mapHeight / 2;
                 } else {
-                    robotDestinationGroup.visible = false;
+                    robotGroup.destinationGroup.visible = false;
                 }
-                scene.add(robotDestinationGroup);
-                robotDestinationGroups[robot.id - 1] = robotDestinationGroup;
+                scene.add(robotGroup.destinationGroup);
 
-                const arrowMesh = new THREE.Mesh(destinationGeometry, sensorMaterial);
-                arrowMesh.rotation.x = Math.PI;
-                arrowMesh.position.y = 1.5;
-                robotDestinationGroup.add(arrowMesh);
+                const destinationArrowMesh = new THREE.Mesh(destinationArrowGeometry, new THREE.MeshBasicMaterial({ color: robot.color }));
+                destinationArrowMesh.rotation.x = Math.PI;
+                destinationArrowMesh.position.y = 1.5;
+                robotGroup.destinationGroup.add(destinationArrowMesh);
             }
 
             // Map renderer loop
