@@ -14,8 +14,8 @@ canvas{display:block}
 .flex{flex: 1;}
 .middle{display:flex;flex:1;align-items:center}
 .box{pointer-events:all;background-color:rgba(17,17,17,0.6);color:#fff;padding:8px 16px}
-.robots{width:18vw;max-height:75vh;overflow-y:auto}
-.controls{width:22vw}
+.robots{width:20vw;max-height:75vh;overflow-y:auto}
+.controls{width:24vw}
 .number-input{width:48px}
 .weight-input{width:72px}
 .footer{text-align:center;padding:8px 16px}

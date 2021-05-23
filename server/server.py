@@ -1,8 +1,21 @@
 #!/usr/bin/env python
 
 import asyncio
-import websockets
 import json
+import websockets
+
+# Constants
+DEBUG = False
+
+WEBSOCKETS_PORT = 8080
+
+TICK_MANUAL = 0
+TICK_AUTO = 1
+
+TILE_UNKOWN = 0
+TILE_FLOOR = 1
+TILE_CHEST = 2
+TILE_WALL = 3
 
 # Simple asyncio timer class
 class Timer:
@@ -17,19 +30,6 @@ class Timer:
 
     def cancel(self):
         self._task.cancel()
-
-# Constants
-DEBUG = False
-
-WEBSOCKETS_PORT = 8080
-
-TICK_MANUAL = 0
-TICK_AUTO = 1
-
-TILE_UNKOWN = 0
-TILE_FLOOR = 1
-TILE_CHEST = 2
-TILE_WALL = 3
 
 # Load map from file
 mapFile = open("map.json", "r")
@@ -81,7 +81,7 @@ async def tick():
         await website["websocket"].send(json.dumps({
             "type": "website_tick",
             "data": {}
-        }))
+        }, separators=(',', ':')))
 
     # Tick first robot in the robot_tick_done will the next robot be ticked
     currentRobotIndex = 0
@@ -89,7 +89,7 @@ async def tick():
     await robots[currentRobotIndex]["websocket"].send(json.dumps({
         "type": "robot_tick",
         "data": {}
-    }))
+    }, separators=(',', ':')))
     currentRobotIndex += 1
 
 async def timerCallback():
@@ -133,7 +133,7 @@ async def websocketConnection(websocket, path):
                         "data": mapData
                     }
                 }
-            }))
+            }, separators=(',', ':')))
 
             # Send other robot connected messages
             for otherRobot in robots:
@@ -148,7 +148,7 @@ async def websocketConnection(websocket, path):
                             "robot_lift": otherRobot["lift"],
                             "directions": otherRobot["directions"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
                     # Send other robot connect message of this robot
                     await otherRobot["websocket"].send(json.dumps({
@@ -160,7 +160,7 @@ async def websocketConnection(websocket, path):
                             "robot_lift": robot["lift"],
                             "directions": robot["directions"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             # Send other websites connected messages
             for website in websites:
@@ -170,7 +170,7 @@ async def websocketConnection(websocket, path):
                     "data": {
                         "website_id": website["id"]
                     }
-                }))
+                }, separators=(',', ':')))
 
                 # Send this website connect message of this robot
                 await website["websocket"].send(json.dumps({
@@ -182,11 +182,11 @@ async def websocketConnection(websocket, path):
                         "robot_lift": robot["lift"],
                         "directions": robot["directions"]
                     }
-                }))
+                }, separators=(',', ':')))
 
         # Website connect message
         if message["type"] == "website_connect":
-            website =  {
+            website = {
                 "id": message["data"]["website_id"],
                 "websocket": websocket
             }
@@ -205,7 +205,7 @@ async def websocketConnection(websocket, path):
                         "data": mapData
                     }
                 }
-            }))
+            }, separators=(',', ':')))
 
             # Send robot connected messages
             for robot in robots:
@@ -220,7 +220,7 @@ async def websocketConnection(websocket, path):
                             "robot_lift": robot["lift"],
                             "directions": robot["directions"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
                     # Send robot connect message of this website
                     await robot["websocket"].send(json.dumps({
@@ -228,7 +228,7 @@ async def websocketConnection(websocket, path):
                         "data": {
                             "website_id": website["id"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             # Send other websites connected messages
             for otherWebsite in websites:
@@ -239,7 +239,7 @@ async def websocketConnection(websocket, path):
                         "data": {
                             "website_id": otherWebsite["id"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
                     # Send this website connect message of this other website
                     await otherWebsite["websocket"].send(json.dumps({
@@ -247,7 +247,7 @@ async def websocketConnection(websocket, path):
                         "data": {
                             "website_id": website["id"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
         # Update world info message
         if message["type"] == "update_world_info":
@@ -270,13 +270,13 @@ async def websocketConnection(websocket, path):
                     await robot["websocket"].send(json.dumps({
                         "type": "update_world_info",
                         "data": messageData
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
                     "type": "update_world_info",
                     "data": messageData
-                }))
+                }, separators=(',', ':')))
 
         # World tick message
         if message["type"] == "world_tick":
@@ -304,7 +304,7 @@ async def websocketConnection(websocket, path):
                                 "y": message["data"]["direction"]["y"]
                             }
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
@@ -317,7 +317,7 @@ async def websocketConnection(websocket, path):
                             "y": message["data"]["direction"]["y"]
                         }
                     }
-                }))
+                }, separators=(',', ':')))
 
         # Cancel direction message
         if message["type"] == "cancel_direction":
@@ -338,7 +338,7 @@ async def websocketConnection(websocket, path):
                                 "id": message["data"]["direction"]["id"]
                             }
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
@@ -349,7 +349,7 @@ async def websocketConnection(websocket, path):
                             "id": message["data"]["direction"]["id"]
                         }
                     }
-                }))
+                }, separators=(',', ':')))
 
         # Tick done message
         if message["type"] == "robot_tick_done":
@@ -359,17 +359,20 @@ async def websocketConnection(websocket, path):
 
             mapUpdates = []
             for mapUpdate in message["data"]["map"]:
-                mapData[mapUpdate["y"] * mapHeight + mapUpdate["x"]] = mapUpdate["type"]
-                mapUpdates.append({
-                    "x": mapUpdate["x"],
-                    "y": mapUpdate["y"],
-                    "type": mapUpdate["type"]
-                })
+                position = mapUpdate["y"] * mapWidth + mapUpdate["x"]
+                if mapData[position] == TILE_UNKOWN and mapUpdate["type"] != TILE_UNKOWN:
+                    mapData[position] = mapUpdate["type"]
+
+                    mapUpdates.append({
+                        "x": mapUpdate["x"],
+                        "y": mapUpdate["y"],
+                        "type": mapUpdate["type"]
+                    })
 
             log("Tick done from Robot " + str(robot["id"]))
 
             for otherRobot in robots:
-                if otherRobot["websocket"] != None:
+                if otherRobot["websocket"] != None and otherRobot["id"] != robot["id"]:
                     await otherRobot["websocket"].send(json.dumps({
                         "type": "robot_tick_done",
                         "data": {
@@ -378,7 +381,7 @@ async def websocketConnection(websocket, path):
                             "robot_y": robot["y"],
                             "map": mapUpdates
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
@@ -389,17 +392,17 @@ async def websocketConnection(websocket, path):
                         "robot_y": robot["y"],
                         "map": mapUpdates
                     }
-                }))
+                }, separators=(',', ':')))
 
             if currentRobotIndex < len(robots):
                 log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
                 await robots[currentRobotIndex]["websocket"].send(json.dumps({
                     "type": "robot_tick",
                     "data": {}
-                }))
+                }, separators=(',', ':')))
                 currentRobotIndex += 1
 
-    # Disconnect message
+    # Disconnect message for robots
     for robot in robots:
         if robot["websocket"] == websocket:
             log("Robot " + str(robot["id"]) + " is disconnected")
@@ -412,7 +415,7 @@ async def websocketConnection(websocket, path):
                         "data": {
                             "robot_id": robot["id"]
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
@@ -420,10 +423,11 @@ async def websocketConnection(websocket, path):
                     "data": {
                         "robot_id": robot["id"]
                     }
-                }))
+                }, separators=(',', ':')))
 
             break
 
+    # Disconnect message for websites
     for website in websites:
         if website["websocket"] == websocket:
             website_id = website["id"]
@@ -441,7 +445,7 @@ async def websocketConnection(websocket, path):
                         "data": {
                             "website_id": website_id
                         }
-                    }))
+                    }, separators=(',', ':')))
 
             for website in websites:
                 await website["websocket"].send(json.dumps({
@@ -449,10 +453,11 @@ async def websocketConnection(websocket, path):
                     "data": {
                         "website_id": website_id
                     }
-                }))
+                }, separators=(',', ':')))
 
             break
 
+# Create websockets server
 async def websocketsServer():
     log("Websockets server is listening at ws://127.0.0.1:" + str(WEBSOCKETS_PORT))
     async with websockets.serve(websocketConnection, "127.0.0.1", WEBSOCKETS_PORT):

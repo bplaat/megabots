@@ -60,64 +60,55 @@ const app = new Vue({
         activeProgram: 'Discover',
         programs: {
             Nothing() {},
+
             Discover() {
-                // Check if there are unkown tiles
-                let isDiscovered = true;
-                for (let i = 0; i < this.mapHeight * this.mapWidth; i++) {
-                    if (this.mapData[i] == TILE_UNKOWN) {
-                        isDiscovered = false;
-                        break;
+                // Get list off all unkown tiles that are not arounded with chests
+                let unkownTiles = [];
+                const unkownMap = [];
+                for (let y = 1; y < this.mapHeight - 1; y++) {
+                    for (let x = 1; x < this.mapWidth - 1; x++) {
+                        if (
+                            this.mapData[y * this.mapWidth + x] == TILE_UNKOWN
+                        ) {
+                            if (
+                                this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST &&
+                                this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST &&
+                                this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST &&
+                                this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST
+                            ) {
+                                continue;
+                            }
+
+                            unkownTiles.push({ x: x, y: y });
+                            unkownMap[y * this.mapWidth + x] = true;
+                        } else {
+                            unkownMap[y * this.mapWidth + x] = false;
+                        }
                     }
                 }
 
-                if (!isDiscovered) {
-                    // Get list off all unkown tiles that are not arounded with chests
-                    let unkownTiles = [];
-                    const unkownMap = [];
-                    for (let y = 1; y < this.mapHeight - 1; y++) {
-                        for (let x = 1; x < this.mapWidth - 1; x++) {
-                            if (
-                                this.mapData[y * this.mapWidth + x] == TILE_UNKOWN
-                            ) {
-                                if (
-                                    this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST &&
-                                    this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST &&
-                                    this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST &&
-                                    this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST
-                                ) {
-                                    continue;
-                                }
-
-                                unkownTiles.push({ x: x, y: y });
-                                unkownMap[y * this.mapWidth + x] = true;
-                            } else {
-                                unkownMap[y * this.mapWidth + x] = false;
-                            }
-                        }
-                    }
+                if (unkownTiles.length > 0) {
+                    const getTileNeighbors = point => {
+                        const neighbors = [];
+                        if (point.x > 0)
+                            neighbors.push({ "x": point.x - 1, "y": point.y });
+                        if (point.y > 0)
+                            neighbors.push({ "x": point.x, "y": point.y - 1 });
+                        if (point.x < this.mapWidth - 1)
+                            neighbors.push({ "x": point.x + 1, "y": point.y });
+                        if (point.y < this.mapHeight - 1)
+                            neighbors.push({ "x": point.x, "y": point.y + 1 });
+                        return neighbors;
+                    };
 
                     for (const robot of this.robots) {
                         if (robot.directions.length == 0 && unkownTiles.length > 0) {
                             // A even simpeler version off the path finding
-                            // algorithm to search for the clossed unkown tile
-                            const tileNeighbors = point => {
-                                const neighbors = [];
-                                if (point.x > 0)
-                                    neighbors.push({ "x": point.x - 1, "y": point.y });
-                                if (point.y > 0)
-                                    neighbors.push({ "x": point.x, "y": point.y - 1 });
-                                if (point.x < this.mapWidth - 1)
-                                    neighbors.push({ "x": point.x + 1, "y": point.y });
-                                if (point.y < this.mapHeight - 1)
-                                    neighbors.push({ "x": point.x, "y": point.y + 1 });
-                                neighbors.sort(() => (Math.random() >= 0.5) ? 1 : -1);
-                                return neighbors;
-                            };
-
+                            // algorithm to search for finding the closesd unkown tile
                             const frontier = [ { x: robot.x, y: robot.y } ];
                             const cameFrom = [];
                             while (frontier.length > 0) {
-                                let current = frontier.shift();
+                                const current = frontier.shift();
 
                                 if (unkownMap[current.y * this.mapWidth + current.x]) {
                                     // Drive robot to closest unkown tile
@@ -136,11 +127,12 @@ const app = new Vue({
                                     // Remove tile from list
                                     unkownTiles = unkownTiles.filter(tile => !(tile.x == current.x && tile.y == current.y));
                                     unkownMap[current.y * this.mapWidth + current.x] = false;
-
                                     break;
                                 }
 
-                                for (const neighbor of tileNeighbors(current)) {
+                                const neighbors = getTileNeighbors(current);
+                                neighbors.sort(() => (Math.random() >= 0.5) ? 1 : -1);
+                                for (const neighbor of neighbors) {
                                     let colliding = false;
                                     for (otherRobot of this.robots) {
                                         if (otherRobot.x == neighbor.x && otherRobot.y == neighbor.y) {
@@ -148,13 +140,18 @@ const app = new Vue({
                                             break;
                                         }
                                     }
+                                    if (colliding) {
+                                        continue;
+                                    }
 
                                     const tileType = this.mapData[neighbor.y * this.mapWidth + neighbor.x];
-                                    if (!colliding && (tileType == TILE_FLOOR || tileType == TILE_UNKOWN)) {
-                                        if (cameFrom[neighbor.y * this.mapWidth + neighbor.x] == undefined) {
-                                            frontier.push(neighbor);
-                                            cameFrom[neighbor.y * this.mapWidth + neighbor.x] = current;
-                                        }
+                                    if (!(tileType == TILE_FLOOR || tileType == TILE_UNKOWN)) {
+                                        continue;
+                                    }
+
+                                    if (cameFrom[neighbor.y * this.mapWidth + neighbor.x] == undefined) {
+                                        frontier.push(neighbor);
+                                        cameFrom[neighbor.y * this.mapWidth + neighbor.x] = current;
                                     }
                                 }
                             }
@@ -162,6 +159,7 @@ const app = new Vue({
                     }
                 }
             },
+
             Random() {
                 for (const robot of this.robots) {
                     if (robot.directions.length == 0) {
@@ -195,7 +193,7 @@ const app = new Vue({
                 websocket.send(JSON.stringify({
                     type: 'update_world_info',
                     data: {
-                        tick_type: tickType
+                        tick_type: parseInt(tickType)
                     }
                 }));
             }
@@ -206,7 +204,7 @@ const app = new Vue({
                 websocket.send(JSON.stringify({
                     type: 'update_world_info',
                     data: {
-                        tick_speed: tickSpeed
+                        tick_speed: parseInt(tickSpeed)
                     }
                 }));
             }
@@ -272,10 +270,8 @@ const app = new Vue({
 
                     this.mapWidth = message.data.map.width;
                     this.mapHeight = message.data.map.height;
-                    for (let y = 0; y < this.mapHeight; y++) {
-                        for (let x = 0; x < this.mapWidth; x++) {
-                            this.mapData[y * this.mapWidth + x] = message.data.map.data[y * this.mapWidth + x];
-                        }
+                    for (let i = 0; i < this.mapHeight * this.mapWidth; i++) {
+                        this.mapData[i] = message.data.map.data[i];
                     }
 
                     this.startWorldSimulation();
@@ -336,7 +332,7 @@ const app = new Vue({
                     data: {
                         robot_id: robotId,
                         direction: {
-                            id: directionId
+                            id: parseInt(directionId)
                         }
                     }
                 }));
@@ -360,8 +356,8 @@ const app = new Vue({
                         robot_id: this.sendForm.robot_id,
                         direction: {
                             id: Date.now(),
-                            x: this.sendForm.robot_x,
-                            y: this.sendForm.robot_y
+                            x: parseInt(this.sendForm.robot_x),
+                            y: parseInt(this.sendForm.robot_y)
                         }
                     }
                 }));
@@ -382,8 +378,8 @@ const app = new Vue({
                                 robot_id: robot.id,
                                 direction: {
                                     id: directionId,
-                                    x: this.pickupForm.robot_x1,
-                                    y: this.pickupForm.robot_y1
+                                    x: parseInt(this.pickupForm.robot_x1),
+                                    y: parseInt(this.pickupForm.robot_y1)
                                 }
                             }
                         }));
@@ -394,8 +390,8 @@ const app = new Vue({
                                 robot_id: robot.id,
                                 direction: {
                                     id: directionId + 1,
-                                    x: this.pickupForm.robot_x2,
-                                    y: this.pickupForm.robot_y2
+                                    x: parseInt(this.pickupForm.robot_x2),
+                                    y: parseInt(this.pickupForm.robot_y2)
                                 }
                             }
                         }));
@@ -415,8 +411,8 @@ const app = new Vue({
                                 robot_id: robot.id,
                                 direction: {
                                     id: directionId,
-                                    x: this.pickupForm.robot_x1,
-                                    y: this.pickupForm.robot_y1
+                                    x: parseInt(this.pickupForm.robot_x1),
+                                    y: parseInt(this.pickupForm.robot_y1)
                                 }
                             }
                         }));
@@ -427,8 +423,8 @@ const app = new Vue({
                                 robot_id: robot.id,
                                 direction: {
                                     id: directionId + 1,
-                                    x: this.pickupForm.robot_x2,
-                                    y: this.pickupForm.robot_y2
+                                    x: parseInt(this.pickupForm.robot_x2),
+                                    y: parseInt(this.pickupForm.robot_y2)
                                 }
                             }
                         }));
@@ -486,16 +482,16 @@ const app = new Vue({
                 robotsGroup.downLedMesh.material.color.setHex(robot.y - old_robot_y > 0 ? robot.color : ledOffColor);
 
                 if (robotsGroup.visible) {
-                    const coords = { x: robotsGroup.position.x, y: robotsGroup.position.z };
-                    const tween = new TWEEN.Tween(coords)
+                    const position = { x: robotsGroup.position.x, y: robotsGroup.position.z };
+                    new TWEEN.Tween(position)
                         .to({
                             x: robot.x - this.mapWidth / 2,
                             y: robot.y - this.mapHeight / 2
                         }, this.tickSpeed)
                         .easing(TWEEN.Easing.Quadratic.Out)
                         .onUpdate(() => {
-                            robotsGroup.position.x = coords.x;
-                            robotsGroup.position.z = coords.y;
+                            robotsGroup.position.x = position.x;
+                            robotsGroup.position.z = position.y;
                         })
                         .start();
                 } else {
@@ -513,16 +509,16 @@ const app = new Vue({
                 if (robot.directions.length > 0) {
                     robotDestinationGroup.visible = true;
                     if (robotDestinationGroup.position.x != 0 && robotDestinationGroup.position.z != 0) {
-                        const coords = { x: robotDestinationGroup.position.x, y: robotDestinationGroup.position.z };
-                        const tween = new TWEEN.Tween(coords)
+                        const position = { x: robotDestinationGroup.position.x, y: robotDestinationGroup.position.z };
+                        new TWEEN.Tween(position)
                             .to({
                                 x: robot.directions[0].x - this.mapWidth / 2,
                                 y: robot.directions[0].y - this.mapHeight / 2
                             }, this.tickSpeed)
                             .easing(TWEEN.Easing.Quadratic.Out)
                             .onUpdate(() => {
-                                robotDestinationGroup.position.x = coords.x;
-                                robotDestinationGroup.position.z = coords.y;
+                                robotDestinationGroup.position.x = position.x;
+                                robotDestinationGroup.position.z = position.y;
                             })
                             .start();
                     } else {

@@ -1,8 +1,8 @@
 #!/usr/bin/env python
 
-import sys
 import json
 import random
+import sys
 
 # Constants
 TILE_UNKOWN = 0
@@ -61,4 +61,4 @@ with open("map.json", "w") as mapFile:
         "width": mapWidth,
         "height": mapHeight,
         "data": mapData
-    }))
+    }, separators=(',', ':')))

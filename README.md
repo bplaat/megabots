@@ -31,10 +31,7 @@ All message are encoded in JSON and send over an plain WebSocket connection with
 < robot 4 { new_direction or cancel_direction }
 
 loop {
-    < robot 1 { robot_tick with robot_id = 1 }
-    < robot 2 { robot_tick with robot_id = 1 }
-    < robot 3 { robot_tick with robot_id = 1 }
-    < robot 4 { robot_tick with robot_id = 1 }
+    < robot 1 { robot_tick }
 
     > robot 1 { robot_tick_done }
     < robot 2 { robot_tick_done }
