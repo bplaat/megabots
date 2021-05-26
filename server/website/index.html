@@ -44,13 +44,13 @@
                 <h2>Controls</h2>
                 <p>
                     <button @click="tickType = tickManual">Stop!</button>
-                    <select v-model="tickType">
+                    <select v-model="tickType" @change="changeTickType">
                         <option :value="tickManual">Manual Tick</option>
                         <option :value="tickAuto">Auto Tick</option>
                     </select>
                     <span v-if="tickType == tickAuto">
                         Speed:
-                        <select v-model="tickSpeed">
+                        <select v-model="tickSpeed" @change="changeTickSpeed">
                             <option v-for="i in 10" :key="i * 100" :value="i * 100">{{ i * 100 }} ms</option>
                         </select>
                     </span>

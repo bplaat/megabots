@@ -1,5 +1,5 @@
 // Constants
-const DEBUG = false;
+const DEBUG = true;
 
 const WEBSOCKETS_PORT = 8080;
 
@@ -187,30 +187,6 @@ const app = new Vue({
         }
     },
 
-    watch: {
-        tickType(tickType, oldTickType) {
-            if (this.connected && tickType != oldTickType) {
-                websocket.send(JSON.stringify({
-                    type: 'update_world_info',
-                    data: {
-                        tick_type: parseInt(tickType)
-                    }
-                }));
-            }
-        },
-
-        tickSpeed(tickSpeed, oldTickSpeed) {
-            if (this.connected && tickSpeed != oldTickSpeed) {
-                websocket.send(JSON.stringify({
-                    type: 'update_world_info',
-                    data: {
-                        tick_speed: parseInt(tickSpeed)
-                    }
-                }));
-            }
-        }
-    },
-
     methods: {
         websocketsConnect() {
             websocket = new WebSocket('ws://127.0.0.1:' + WEBSOCKETS_PORT + '/');
@@ -334,6 +310,28 @@ const app = new Vue({
                         direction: {
                             id: parseInt(directionId)
                         }
+                    }
+                }));
+            }
+        },
+
+        changeTickType() {
+            if (this.connected) {
+                websocket.send(JSON.stringify({
+                    type: 'update_world_info',
+                    data: {
+                        tick_type: parseInt(this.tickType)
+                    }
+                }));
+            }
+        },
+
+        changeTickSpeed() {
+            if (this.connected) {
+                websocket.send(JSON.stringify({
+                    type: 'update_world_info',
+                    data: {
+                        tick_speed: parseInt(this.tickSpeed)
                     }
                 }));
             }

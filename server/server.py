@@ -95,7 +95,7 @@ async def tick():
 async def timerCallback():
     await tick()
     if tickType == TICK_AUTO:
-        timer = Timer(tickSpeed / 1000, timerCallback)
+        Timer(tickSpeed / 1000, timerCallback)
 
 # Websocket server
 async def websocketConnection(websocket, path):
@@ -253,17 +253,17 @@ async def websocketConnection(websocket, path):
         if message["type"] == "update_world_info":
             messageData = {}
 
+            if "tick_speed" in message["data"]:
+                tickSpeed = message["data"]["tick_speed"]
+                messageData["tick_speed"] = tickSpeed
+
             if "tick_type" in message["data"]:
                 oldTickType = tickType
                 tickType = message["data"]["tick_type"]
                 messageData["tick_type"] = tickType
 
                 if oldTickType == TICK_MANUAL and tickType == TICK_AUTO:
-                    timer = Timer(tickSpeed / 1000, timerCallback)
-
-            if "tick_speed" in message["data"]:
-                tickSpeed = message["data"]["tick_speed"]
-                messageData["tick_speed"] = tickSpeed
+                    Timer(tickSpeed / 1000, timerCallback)
 
             for robot in robots:
                 if robot["websocket"] != None:
