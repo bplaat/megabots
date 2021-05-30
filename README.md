@@ -8,10 +8,16 @@ Some mega bots living in a grid
     pip install websockets
     ```
 
-- Run the `test.sh` script to start all processes:
+- Run the `test.sh` script to start the robots simulation without Webots:
 
     ```
     ./test.sh
+    ```
+
+- Run the `test.sh` script with extra commands to start the robots simulation in Webots:
+
+    ```
+    ./test.sh webots
     ```
 
 ## Protocol:
