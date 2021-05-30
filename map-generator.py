@@ -62,3 +62,37 @@ with open("map.json", "w") as mapFile:
         "height": mapHeight,
         "data": mapData
     }, separators=(',', ':')))
+
+# Create webots world file
+with open("webots/world.wbt", "w") as webotsFile:
+    webotsFile.write("""#VRML_SIM R2021a utf8
+WorldInfo {
+    basicTimeStep 100
+    coordinateSystem "NUE"
+}
+Viewpoint {
+    orientation -0.8105251800653819 0.5320768237455532 0.24483297595059322 1.0072345104625866
+    position %f %f %f
+}
+TexturedBackground {
+}
+TexturedBackgroundLight {
+}
+Floor {
+    translation 0 0 0
+    size %f %f
+    tileSize 0.1 0.1
+}
+""" % (mapWidth / 10, mapHeight / 10, mapWidth / 10, mapWidth / 10, mapHeight / 10))
+
+    i = 0
+    for y in range(0, mapHeight):
+        for x in range(0, mapWidth):
+            if mapData[y * mapWidth + x] == TILE_CHEST or mapData[y * mapWidth + x] == TILE_WALL:
+                webotsFile.write("""WoodenBox {
+    name "Chest %d"
+    translation %f 0.05 %f
+    size 0.1 0.1 0.1
+}
+""" % (i, (x - mapWidth / 2) / 10 + 0.05, (y - mapHeight / 2) / 10 + 0.05))
+                i += 1

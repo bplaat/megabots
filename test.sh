@@ -4,7 +4,7 @@ if [ "$(uname -s)" == "Darwin" ]; then
     alias python = python3
 fi
 
-python map-generator.py 32 32
+python map-generator.py 16 16
 
 python server/server.py &
 python -m http.server 8081 --directory server/website &
