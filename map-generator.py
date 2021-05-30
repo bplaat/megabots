@@ -1,6 +1,7 @@
 #!/usr/bin/env python
 
 import json
+import os
 import random
 import sys
 
@@ -44,7 +45,7 @@ maze = makeMaze(34, 34)
 lines = maze.split('\n')
 for y in range(1, mapHeight - 1):
     for x in range(1, mapWidth - 1):
-        mapData[y * mapWidth + x] = lines[y][x] == " " and TILE_FLOOR or TILE_CHEST
+        mapData[y * mapWidth + x] = lines[y + 1][x + 1] == " " and TILE_FLOOR or TILE_CHEST
 
 # Write map data to JSON file
 with open("map.json", "w") as mapFile:
@@ -55,15 +56,26 @@ with open("map.json", "w") as mapFile:
         "data": mapData
     }, separators=(',', ':')))
 
+# Robots start in the corners
+robots = [
+    { "id": 1, "x": 0, "y": 0 },
+    { "id": 2, "x": mapWidth - 1, "y": 0 },
+    { "id": 3, "x": 0, "y": mapHeight - 1 },
+    { "id": 4, "x": mapWidth - 1, "y": mapHeight - 1 }
+]
+
 # Create webots world file
-with open("webots/world.wbt", "w") as webotsFile:
-    webotsFile.write("""#VRML_SIM R2021a utf8
+os.makedirs("webots/controllers", exist_ok=True)
+os.makedirs("webots/worlds", exist_ok=True)
+with open("webots/worlds/world.wbt", "w") as worldFile:
+    # Create world and rectangle arena
+    worldFile.write("""#VRML_SIM R2021a utf8
 WorldInfo {
     basicTimeStep 100
     coordinateSystem "NUE"
 }
 Viewpoint {
-    orientation -0.8105251800653819 0.5320768237455532 0.24483297595059322 1.0072345104625866
+    orientation -0.8 0.5 0.25 1.0072345104625866
     position %f %f %f
 }
 TexturedBackground {
@@ -73,19 +85,73 @@ TexturedBackgroundLight {
 RectangleArena {
     translation 0 0 0
     floorSize %f %f
-    floorTileSize 0.1 0.1
-    WallHeight 0.05
+    floorTileSize 0.2 0.2
+    wallHeight 0.05
 }
+Group {
+    children [
 """ % (mapWidth / 10, mapHeight / 10, mapWidth / 10, mapWidth / 10, mapHeight / 10))
 
+    # Add chests of random maze
     chestCounter = 0
     for y in range(0, mapHeight):
         for x in range(0, mapWidth):
             if mapData[y * mapWidth + x] == TILE_CHEST:
-                webotsFile.write("""WoodenBox {
-    name "Chest #%d"
+                worldFile.write("""WoodenBox {
+    name "Chest %d"
     translation %f 0.05 %f
     size 0.1 0.1 0.1
 }
 """ % (chestCounter, (x - mapWidth / 2) / 10 + 0.05, (y - mapHeight / 2) / 10 + 0.05))
                 chestCounter += 1
+
+    worldFile.write("""]
+}
+""")
+
+    # Add robots
+    for robot in robots:
+        worldFile.write("""Robot {
+    name "Robot %d"
+    translation %f 0.05 %f
+    children [
+        Solid {
+            children [
+                DEF robot_%d_shape Shape {
+                    appearance Appearance {
+                        material Material {
+                        }
+                        texture ImageTexture {
+                            url [
+                                "../../server/website/images/robot.jpg"
+                            ]
+                        }
+                    }
+                    geometry Cylinder {
+                        height 0.1
+                        radius 0.025
+                    }
+                }
+            ]
+        }
+    ]
+    boundingObject USE robot_%d_shape
+    supervisor TRUE
+    controller "robot_%d_controller"
+}
+""" % (robot["id"], (robot["x"] - mapWidth / 2) / 10 + 0.05, (robot["y"] - mapHeight / 2) / 10 + 0.05, robot["id"], robot["id"], robot["id"]))
+
+        # Create controller python file
+        os.makedirs("webots/controllers/robot_%d_controller" % (robot["id"]), exist_ok=True)
+
+        with open("webots/controllers/robot_%d_controller/robot_%d_controller.py" % (robot["id"], robot["id"]), "w") as controllerFile:
+            controllerFile.write("""from controller import Supervisor
+
+robot = Supervisor()
+robotNode = robot.getSelf()
+translation = robotNode.getField("translation")
+translation.setSFVec3f([ 1 / 10, 0, 1 / 10 ])
+""")
+
+# Open Webots
+os.system('start webots/worlds/world.wbt')

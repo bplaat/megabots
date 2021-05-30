@@ -588,7 +588,7 @@ const app = new Vue({
             const wallHeight = 0.5;
             const wallSize = 0.1;
 
-            const wallWidthGeometry = new THREE.BoxGeometry(this.mapWidth + wallSize, wallHeight, wallSize);
+            const wallWidthGeometry = new THREE.BoxGeometry(this.mapWidth + wallSize * 2, wallHeight, wallSize);
             const wallWidthTexture = new THREE.TextureLoader().load('/images/wall.jpg');
             wallWidthTexture.wrapS = THREE.RepeatWrapping;
             wallWidthTexture.wrapT = THREE.RepeatWrapping;
