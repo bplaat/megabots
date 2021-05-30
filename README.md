@@ -160,7 +160,6 @@ TICK_AUTO = 1
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
-TILE_WALL = 3
 ```
 ```json
 {
@@ -171,9 +170,9 @@ TILE_WALL = 3
         "robot_y":  4,
         "map": [
             { "x": 3, "y": 4, "type": 1 },
-            { "x": 5, "y": 4, "type": 3 },
+            { "x": 5, "y": 4, "type": 2 },
             { "x": 4, "y": 3, "type": 1 },
-            { "x": 4, "y": 5, "type": 3 }
+            { "x": 4, "y": 5, "type": 2 }
         ]
     }
 }

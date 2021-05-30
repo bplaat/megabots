@@ -16,7 +16,6 @@ ROBOT_ID = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
-TILE_WALL = 3
 
 # Load map from file
 mapFile = open("map.json", "r")
@@ -26,19 +25,12 @@ mapHeight = mapFileData["height"]
 mapData = mapFileData["data"]
 mapFile.close()
 
-# Init visible map which is unkown except wall border
+# Init square map with robots in corners and rest unkown
 visibleMapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
-for y in range(mapHeight):
-    for x in range(mapWidth):
-        if x == 0 or y == 0 or x == mapWidth - 1 or y == mapHeight - 1:
-            visibleMapData[y * mapWidth + x] = TILE_WALL
-        if (
-            (x == 1 and y == 1) or
-            (x == mapWidth - 2 and y == 1) or
-            (x == 1 and y == mapHeight - 2) or
-            (x == mapWidth - 2 and y == mapHeight - 2)
-        ):
-            visibleMapData[y * mapWidth + x] = TILE_FLOOR
+visibleMapData[0 * mapWidth + 0] = TILE_FLOOR
+visibleMapData[0 * mapWidth + (mapWidth - 1)] = TILE_FLOOR
+visibleMapData[(mapHeight - 1) * mapWidth + 0] = TILE_FLOOR
+visibleMapData[(mapHeight - 1) * mapWidth + (mapWidth - 1)] = TILE_FLOOR
 
 # Get all the neigbors of a point
 def getTileNeighbors(point):
@@ -81,7 +73,7 @@ def findPath(begin, end, withOtherRobots):
                 if colliding:
                     continue
 
-            # Ignore wall and chest tiles
+            # Ignore chest tiles
             tileType = visibleMapData[neighbor["y"] * mapWidth + neighbor["x"]]
             if not (tileType == TILE_FLOOR or tileType == TILE_UNKOWN):
                 continue
@@ -110,10 +102,10 @@ def findPath(begin, end, withOtherRobots):
 
 # Robots start in the corners
 robots = [
-    { "id": 1, "x": 1, "y": 1, "lift": 200, "directions": [], "connected": False },
-    { "id": 2, "x": mapWidth - 2, "y": 1, "lift": 300, "directions": [], "connected": False },
-    { "id": 3, "x": 1, "y": mapHeight - 2, "lift": 500, "directions": [], "connected": False },
-    { "id": 4, "x": mapWidth - 2, "y": mapHeight - 2, "lift": 250, "directions": [], "connected": False }
+    { "id": 1, "x": 0, "y": 0, "lift": 200, "directions": [], "connected": False },
+    { "id": 2, "x": mapWidth - 1, "y": 0, "lift": 300, "directions": [], "connected": False },
+    { "id": 3, "x": 0, "y": mapHeight - 1, "lift": 500, "directions": [], "connected": False },
+    { "id": 4, "x": mapWidth - 1, "y": mapHeight - 1, "lift": 250, "directions": [], "connected": False }
 ]
 
 # Simple log function
@@ -199,14 +191,18 @@ async def websocketConnection():
                     # Read sensors from real map and write back to map
                     mapUpdates = []
                     def readSensors():
-                        visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
-                        mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
-                        visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
-                        mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
-                        visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
-                        visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
-                        mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
+                        if robot["x"] > 0:
+                            visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] = mapData[robot["y"] * mapWidth + (robot["x"] - 1)]
+                            mapUpdates.append({ "x": robot["x"] - 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] - 1)] })
+                        if robot["x"] < mapWidth - 1:
+                            visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] = mapData[robot["y"] * mapWidth + (robot["x"] + 1)]
+                            mapUpdates.append({ "x": robot["x"] + 1, "y": robot["y"], "type": visibleMapData[robot["y"] * mapWidth + (robot["x"] + 1)] })
+                        if robot["y"] > 0:
+                            visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] = mapData[(robot["y"] - 1) * mapWidth + robot["x"]]
+                            mapUpdates.append({ "x": robot["x"], "y": robot["y"] - 1, "type": visibleMapData[(robot["y"] - 1) * mapWidth + robot["x"]] })
+                        if robot["y"] < mapHeight - 1:
+                            visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] = mapData[(robot["y"] + 1) * mapWidth + robot["x"]]
+                            mapUpdates.append({ "x": robot["x"], "y": robot["y"] + 1, "type": visibleMapData[(robot["y"] + 1) * mapWidth + robot["x"]] })
                     readSensors()
 
                     # Check if we are not already at destination

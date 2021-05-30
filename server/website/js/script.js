@@ -1,5 +1,5 @@
 // Constants
-const DEBUG = true;
+const DEBUG = false;
 
 const WEBSOCKETS_PORT = 8080;
 
@@ -9,11 +9,10 @@ const TICK_AUTO = 1;
 const TILE_UNKOWN = 0;
 const TILE_FLOOR = 1;
 const TILE_CHEST = 2;
-const TILE_WALL = 3;
 
 // App
-let websocket, mapMeshesGroup, floorGeometry, cubeGeometry, wallGeometry,
-    unkownMaterial, floorMaterial, chestMaterial, wallMaterial;
+let websocket, mapMeshesGroup, floorGeometry, cubeGeometry,
+    unkownMaterial, floorMaterial, chestMaterial;
 const ledOffColor = 0x000000, mapMeshes = [], robotGroups = [];
 
 function rand (min, max) {
@@ -443,20 +442,17 @@ const app = new Vue({
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
                     if (type == TILE_FLOOR) geometry = floorGeometry;
-                    if (type == TILE_WALL) geometry = wallGeometry;
 
                     let material;
                     if (type == TILE_UNKOWN) material = unkownMaterial;
                     if (type == TILE_FLOOR) material = floorMaterial;
                     if (type == TILE_CHEST) material = chestMaterial;
-                    if (type == TILE_WALL) material = wallMaterial;
 
                     const tileMesh = new THREE.Mesh(geometry, material);
                     tileMesh.position.x = x - this.mapWidth / 2;
                     tileMesh.position.z = y - this.mapHeight / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
-                    if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
                     mapMeshes[y * this.mapWidth + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
@@ -560,11 +556,9 @@ const app = new Vue({
 
             floorGeometry = new THREE.PlaneGeometry(1, 1);
             cubeGeometry = new THREE.BoxGeometry(1, 1, 1);
-            wallGeometry = new THREE.BoxGeometry(1, 1.5, 1);
             unkownMaterial = new THREE.MeshBasicMaterial({ color: 0x222222, map: new THREE.TextureLoader().load('/images/unkown.jpg') });
             floorMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/floor.jpg'), side: THREE.DoubleSide });
             chestMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/chest.jpg') });
-            wallMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/wall.jpg') });
 
             for (let y = 0; y < this.mapHeight; y++) {
                 for (let x = 0; x < this.mapWidth; x++) {
@@ -573,25 +567,67 @@ const app = new Vue({
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
                     if (type == TILE_FLOOR) geometry = floorGeometry;
-                    if (type == TILE_WALL) geometry = wallGeometry;
 
                     let material;
                     if (type == TILE_UNKOWN) material = unkownMaterial;
                     if (type == TILE_FLOOR) material = floorMaterial;
                     if (type == TILE_CHEST) material = chestMaterial;
-                    if (type == TILE_WALL) material = wallMaterial;
 
                     const tileMesh = new THREE.Mesh(geometry, material);
                     tileMesh.position.x = x - this.mapWidth / 2;
                     tileMesh.position.z = y - this.mapHeight / 2;
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
-                    if (type == TILE_WALL) tileMesh.position.y = 0.25;
 
                     mapMeshes[y * this.mapWidth + x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
                 }
             }
+
+            // Create map wall
+            const wallHeight = 0.5;
+            const wallSize = 0.1;
+
+            const wallWidthGeometry = new THREE.BoxGeometry(this.mapWidth + wallSize, wallHeight, wallSize);
+            const wallWidthTexture = new THREE.TextureLoader().load('/images/wall.jpg');
+            wallWidthTexture.wrapS = THREE.RepeatWrapping;
+            wallWidthTexture.wrapT = THREE.RepeatWrapping;
+            wallWidthTexture.repeat.set(this.mapWidth * (1 / wallHeight), 1);
+            const wallWidthMaterial = new THREE.MeshBasicMaterial({ map: wallWidthTexture });
+
+            const wallHeightGeometry = new THREE.BoxGeometry(wallSize, wallHeight, this.mapHeight + wallSize);
+            const wallHeightTexture = new THREE.TextureLoader().load('/images/wall.jpg');
+            wallHeightTexture.wrapS = THREE.RepeatWrapping;
+            wallHeightTexture.wrapT = THREE.RepeatWrapping;
+            wallHeightTexture.repeat.set(this.mapHeight * (1 / wallHeight), 1);
+            const wallHeightMaterial = new THREE.MeshBasicMaterial({ map: wallHeightTexture });
+
+            const wallGroup = new THREE.Group();
+            scene.add(wallGroup);
+
+            const topWall = new THREE.Mesh(wallWidthGeometry, wallWidthMaterial);
+            topWall.position.x = -0.5;
+            topWall.position.y = -(1 - wallHeight) / 2;
+            topWall.position.z = -this.mapWidth / 2 - (0.5 + wallSize / 2);
+            wallGroup.add(topWall);
+
+            const leftWall = new THREE.Mesh(wallHeightGeometry, wallHeightMaterial);
+            leftWall.position.x = -this.mapWidth / 2 - (0.5 + wallSize / 2);
+            leftWall.position.y = -(1 - wallHeight) / 2;
+            leftWall.position.z = -0.5;
+            wallGroup.add(leftWall);
+
+            const rightWall = new THREE.Mesh(wallHeightGeometry, wallHeightMaterial);
+            rightWall.position.x = this.mapWidth / 2 - (0.5 - wallSize / 2);
+            rightWall.position.y = -(1 - wallHeight) / 2;
+            rightWall.position.z = -0.5;
+            wallGroup.add(rightWall);
+
+            const bottomWall = new THREE.Mesh(wallWidthGeometry, wallWidthMaterial);
+            bottomWall.position.x = -0.5;
+            bottomWall.position.y = -(1 - wallHeight) / 2;
+            bottomWall.position.z = this.mapWidth / 2 - (0.5  - wallSize / 2);
+            wallGroup.add(bottomWall);
 
             // Create robot meshes
             const robotGeometry = new THREE.CylinderGeometry(0.3, 0.3, 0.99, 32);

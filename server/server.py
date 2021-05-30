@@ -15,7 +15,6 @@ TICK_AUTO = 1
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
-TILE_WALL = 3
 
 # Simple asyncio timer class
 class Timer:
@@ -42,19 +41,12 @@ mapFile.close()
 tickType = TICK_MANUAL
 tickSpeed = 200
 
-# Init square map with robots in corners and all around wall rest unkown
+# Init square map with robots in corners and rest unkown
 mapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
-for y in range(mapHeight):
-    for x in range(mapWidth):
-        if x == 0 or y == 0 or x == mapWidth - 1 or y == mapHeight - 1:
-            mapData[y * mapWidth + x] = TILE_WALL
-        if (
-            (x == 1 and y == 1) or
-            (x == mapWidth - 2 and y == 1) or
-            (x == 1 and y == mapHeight - 2) or
-            (x == mapWidth - 2 and y == mapHeight - 2)
-        ):
-            mapData[y * mapWidth + x] = TILE_FLOOR
+mapData[0 * mapWidth + 0] = TILE_FLOOR
+mapData[0 * mapWidth + (mapWidth - 1)] = TILE_FLOOR
+mapData[(mapHeight - 1) * mapWidth + 0] = TILE_FLOOR
+mapData[(mapHeight - 1) * mapWidth + (mapWidth - 1)] = TILE_FLOOR
 
 # Robots start in the corners
 robots = [

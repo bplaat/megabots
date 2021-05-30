@@ -8,7 +8,6 @@ import sys
 TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
-TILE_WALL = 3
 
 # Simple Python Maze generator more info:
 # https://rosettacode.org/wiki/Maze_generation#Python
@@ -38,20 +37,13 @@ def makeMaze(w, h):
 # Map generator script
 mapWidth = len(sys.argv) >= 2 and min(int(sys.argv[1]), 64) or 16
 mapHeight = len(sys.argv) >= 2 and min(int(sys.argv[2]), 64) or 16
-mapData = [TILE_UNKOWN] * (mapHeight * mapWidth)
-
-for y in range(mapHeight):
-    for x in range(mapWidth):
-        if x == 0 or y == 0 or x == mapWidth - 1 or y == mapHeight - 1:
-            mapData[y * mapWidth + x] = TILE_WALL
-        else:
-            mapData[y * mapWidth + x] = TILE_FLOOR
+mapData = [TILE_FLOOR] * (mapHeight * mapWidth)
 
 # Generate random maze and copy into map data
-maze = makeMaze(32, 32)
+maze = makeMaze(34, 34)
 lines = maze.split('\n')
-for y in range(2, mapHeight - 2):
-    for x in range(2, mapWidth - 2):
+for y in range(1, mapHeight - 1):
+    for x in range(1, mapWidth - 1):
         mapData[y * mapWidth + x] = lines[y][x] == " " and TILE_FLOOR or TILE_CHEST
 
 # Write map data to JSON file
@@ -78,21 +70,22 @@ TexturedBackground {
 }
 TexturedBackgroundLight {
 }
-Floor {
+RectangleArena {
     translation 0 0 0
-    size %f %f
-    tileSize 0.1 0.1
+    floorSize %f %f
+    floorTileSize 0.1 0.1
+    WallHeight 0.05
 }
 """ % (mapWidth / 10, mapHeight / 10, mapWidth / 10, mapWidth / 10, mapHeight / 10))
 
-    i = 0
+    chestCounter = 0
     for y in range(0, mapHeight):
         for x in range(0, mapWidth):
-            if mapData[y * mapWidth + x] == TILE_CHEST or mapData[y * mapWidth + x] == TILE_WALL:
+            if mapData[y * mapWidth + x] == TILE_CHEST:
                 webotsFile.write("""WoodenBox {
-    name "Chest %d"
+    name "Chest #%d"
     translation %f 0.05 %f
     size 0.1 0.1 0.1
 }
-""" % (i, (x - mapWidth / 2) / 10 + 0.05, (y - mapHeight / 2) / 10 + 0.05))
-                i += 1
+""" % (chestCounter, (x - mapWidth / 2) / 10 + 0.05, (y - mapHeight / 2) / 10 + 0.05))
+                chestCounter += 1
