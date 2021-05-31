@@ -78,10 +78,11 @@ async def tick():
     # Tick first robot in the robot_tick_done will the next robot be ticked
     currentRobotIndex = 0
     log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
-    await robots[currentRobotIndex]["websocket"].send(json.dumps({
-        "type": "robot_tick",
-        "data": {}
-    }, separators=(',', ':')))
+    if robots[currentRobotIndex]["websocket"] != None:
+        await robots[currentRobotIndex]["websocket"].send(json.dumps({
+            "type": "robot_tick",
+            "data": {}
+        }, separators=(',', ':')))
     currentRobotIndex += 1
 
 async def timerCallback():

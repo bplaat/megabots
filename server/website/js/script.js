@@ -64,16 +64,16 @@ const app = new Vue({
                 // Get list off all unkown tiles that are not arounded with chests
                 let unkownTiles = [];
                 const unkownMap = [];
-                for (let y = 1; y < this.mapHeight - 1; y++) {
-                    for (let x = 1; x < this.mapWidth - 1; x++) {
+                for (let y = 0; y < this.mapHeight; y++) {
+                    for (let x = 0; x < this.mapWidth; x++) {
                         if (
                             this.mapData[y * this.mapWidth + x] == TILE_UNKOWN
                         ) {
                             if (
-                                this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST &&
-                                this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST &&
-                                this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST &&
-                                this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST
+                                (x > 0 && this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST) &&
+                                (y > 0 && this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST) &&
+                                (x < this.mapWidth - 1 && this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST) &&
+                                (y < this.mapHeight - 1 && this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST)
                             ) {
                                 continue;
                             }
@@ -132,17 +132,6 @@ const app = new Vue({
                                 const neighbors = getTileNeighbors(current);
                                 neighbors.sort(() => (Math.random() >= 0.5) ? 1 : -1);
                                 for (const neighbor of neighbors) {
-                                    let colliding = false;
-                                    for (otherRobot of this.robots) {
-                                        if (otherRobot.x == neighbor.x && otherRobot.y == neighbor.y) {
-                                            colliding = true;
-                                            break;
-                                        }
-                                    }
-                                    if (colliding) {
-                                        continue;
-                                    }
-
                                     const tileType = this.mapData[neighbor.y * this.mapWidth + neighbor.x];
                                     if (!(tileType == TILE_FLOOR || tileType == TILE_UNKOWN)) {
                                         continue;
