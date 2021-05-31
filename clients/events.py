@@ -11,12 +11,12 @@ def off(type, callback):
     global listeners
     listeners = [listener for listener in listeners if not (listener["type"] == type and listener["callback"] == callback)]
 
-def send(type, data = {}):
+async def send(type, data = {}):
     global listeners
     newListeners = []
     for listener in listeners:
         if listener["type"] == type:
-            listener["callback"](data)
+            await listener["callback"](data)
             if not listener["once"]:
                 newListeners.append(listener)
         else:

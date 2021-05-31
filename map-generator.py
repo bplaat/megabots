@@ -60,7 +60,7 @@ with open("map.json", "w") as mapFile:
 ###################################################
 ############# Webots world generation #############
 ###################################################
-if len(sys.argv) >= 4 and sys.argv[3] != "webots":
+if len(sys.argv) >= 4 and sys.argv[3] == "webots":
     # Robots start in the corners
     robots = [
         { "id": 1, "name": "bastiaan", "x": 0, "y": 0, },
@@ -178,20 +178,82 @@ Group {
 
             with open("webots/controllers/robot_%d_controller/robot_%d_controller.py" % (robot["id"], robot["id"]), "w") as controllerFile:
                 controllerFile.write("""from controller import Supervisor
-# import sys
-# sys.path.append('../../clients/%s')
-# import client
+import asyncio
+import json
+import os
+import sys
+import threading
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../../../clients/%s')
+import client
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/../../../clients')
+import events
+
+# Load map from file
+mapFile = open(os.path.dirname(os.path.realpath(__file__)) + "/../../../map.json", "r")
+mapFileData = json.loads(mapFile.read())
+mapWidth = mapFileData["width"]
+mapHeight = mapFileData["height"]
+mapData = mapFileData["data"]
+mapFile.close()
 
 robot = Supervisor()
 robotNode = robot.getSelf()
 translation = robotNode.getField("translation")
 
-# def onMessage(message):
-#     if message["type"] == "sensors":
+async def robotController():
+    robotId = %d
+    robotX = None
+    robotY = None
 
+    # distanceUpSensor = robot.getDevice("Distance Up Sensor")
+    # distanceUpSensor.enable(100)
+    # distanceLeftSensor = robot.getDevice("Distance Left Sensor")
+    # distanceLeftSensor.enable(100)
+    # distanceRightSensor = robot.getDevice("Distance Right Sensor")
+    # distanceRightSensor.enable(100)
+    # distanceBottomSensor = robot.getDevice("Distance Bottom Sensor")
+    # distanceBottomSensor.enable(100)
 
-#     if message["type"] == "move":
-#         translation.setSFVec3f([ message["x"] / 10, 0, message["y"] / 10 ])
+    # Listen to sensors callbacks
+    async def sensorsCallback(data):
+        global robotX, robotY
+        print("sensors", robotX, robotY)
+        mapUpdates = []
+        # print('Up:', distanceUpSensor.getValue())
+        # print('Left:', distanceLeftSensor.getValue())
+        # print('Right:', distanceRightSensor.getValue())
+        # print('Bottom:', distanceBottomSensor.getValue())
 
-# client.onMessage(onMessage)
-""" % (robot["name"]))
+        if robotX > 0:
+            mapUpdates.append({ "x": robotX - 1, "y": robotY, "type": mapData[robotY * mapWidth + (robotX - 1)] })
+        if robotX < mapWidth - 1:
+            mapUpdates.append({ "x": robotX + 1, "y": robotY, "type": mapData[robotY * mapWidth + (robotX + 1)] })
+        if robotY > 0:
+            mapUpdates.append({ "x": robotX, "y": robotY - 1, "type": mapData[(robotY - 1) * mapWidth + robotX] })
+        if robotY < mapHeight - 1:
+            mapUpdates.append({ "x": robotX, "y": robotY + 1, "type": mapData[(robotY + 1) * mapWidth + robotX] })
+        await events.send("sensors_response", { "map_updates": mapUpdates })
+    events.on("sensors", sensorsCallback)
+
+    # Listen to move events to update local robot position
+    async def moveCallback(data):
+        global robotX, robotY
+        robotX = data["robot_x"]
+        robotY = data["robot_y"]
+        print("move", robotX, robotY)
+        translation.setSFVec3f([ (robotX - mapWidth / 2) / 10 + 0.05, 0.05, (robotY - mapHeight / 2) / 10 + 0.05 ])
+    events.on("move", moveCallback)
+
+    # Send start message last to start connection (no return because async websocket connection!)
+    await events.send("start", { "robot_id": robotId })
+
+def stepperThread():
+    while robot.step(1000) != -1:
+        # print("tick")
+        pass
+
+thread = threading.Thread(target=stepperThread)
+thread.start()
+
+asyncio.run(robotController())
+""" % (robot["name"], robot["id"]))

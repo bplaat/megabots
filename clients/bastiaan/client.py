@@ -6,7 +6,7 @@ import os
 import random
 import sys
 import websockets
-sys.path.append(os.path.dirname(os.path.realpath(__file__)) + '/..')
+sys.path.append(os.path.dirname(os.path.realpath(__file__)) + "/..")
 import events
 
 # Constants
@@ -19,7 +19,7 @@ TILE_FLOOR = 1
 TILE_CHEST = 2
 
 # Load map from file
-mapFile = open("map.json", "r")
+mapFile = open(os.path.dirname(os.path.realpath(__file__)) + "/../../map.json", "r")
 mapFileData = json.loads(mapFile.read())
 mapWidth = mapFileData["width"]
 mapHeight = mapFileData["height"]
@@ -136,7 +136,7 @@ async def websocketConnection():
         log("Robot " + str(robotId) + " connected")
 
         # Send move message with current robot position
-        events.send("move", { "robot_x": robot["x"], "robot_y": robot["y"] })
+        await events.send("move", { "robot_x": robot["x"], "robot_y": robot["y"] })
 
         # Message receive loop
         async for data in websocket:
@@ -195,14 +195,14 @@ async def websocketConnection():
                 if len(robot["directions"]) > 0:
                     # Read sensors from controller and write back to map
                     mapUpdates = []
-                    def sensorsResponseCallback(data):
+                    async def sensorsResponseCallback(data):
                         for mapUpdate in data["map_updates"]:
                             position = mapUpdate["y"] * mapWidth + mapUpdate["x"]
                             if visibleMapData[position] == TILE_UNKOWN and mapUpdate["type"] != TILE_UNKOWN:
                                 visibleMapData[position] = mapUpdate["type"]
                             mapUpdates.append({ "x": mapUpdate["x"], "y": mapUpdate["y"], "type": mapUpdate["type"] })
                     events.once("sensors_response", sensorsResponseCallback)
-                    events.send("sensors")
+                    await events.send("sensors")
 
                     # Check if we are not already at destination
                     destination = { "x": robot["directions"][0]["x"], "y": robot["directions"][0]["y"] }
@@ -244,11 +244,11 @@ async def websocketConnection():
                             robot["y"] = path[0]["y"]
 
                             # Send move message to controller
-                            events.send("move", { "robot_x": robot["x"], "robot_y": robot["y"] })
+                            await events.send("move", { "robot_x": robot["x"], "robot_y": robot["y"] })
 
                             # Read sensors again of new position
                             events.once("sensors_response", sensorsResponseCallback)
-                            events.send("sensors")
+                            await events.send("sensors")
 
                             # When we are at the destination delete direction
                             if robot["x"] == destination["x"] and robot["y"] == destination["y"]:
@@ -291,20 +291,20 @@ async def websocketConnection():
                 log("Tick done from Robot " + str(otherRobot["id"]))
 
 # Controller sends start message to init and start robot connection
-def startCallback(data):
+async def startCallback(data):
     global robotId
     robotId = data["robot_id"]
-    asyncio.run(websocketConnection())
+    await websocketConnection()
 events.once("start", startCallback)
 
 # When started directly the robot emultes his own controller
-def robotController():
+async def robotController():
     robotId = len(sys.argv) >= 2 and int(sys.argv[1]) or 1
     robotX = None
     robotY = None
 
     # Listen to sensors callbacks
-    def sensorsCallback(data):
+    async def sensorsCallback(data):
         global robotX, robotY
         mapUpdates = []
         if robotX > 0:
@@ -315,18 +315,18 @@ def robotController():
             mapUpdates.append({ "x": robotX, "y": robotY - 1, "type": mapData[(robotY - 1) * mapWidth + robotX] })
         if robotY < mapHeight - 1:
             mapUpdates.append({ "x": robotX, "y": robotY + 1, "type": mapData[(robotY + 1) * mapWidth + robotX] })
-        events.send("sensors_response", { "map_updates": mapUpdates })
+        await events.send("sensors_response", { "map_updates": mapUpdates })
     events.on("sensors", sensorsCallback)
 
     # Listen to move events to update local robot position
-    def moveCallback(data):
+    async def moveCallback(data):
         global robotX, robotY
         robotX = data["robot_x"]
         robotY = data["robot_y"]
     events.on("move", moveCallback)
 
     # Send start message last to start connection (no return because async websocket connection!)
-    events.send("start", { "robot_id": robotId })
+    await events.send("start", { "robot_id": robotId })
 
 if __name__ == "__main__":
-    robotController()
+    asyncio.run(robotController())
