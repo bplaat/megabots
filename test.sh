@@ -2,7 +2,7 @@
 
 # For MacOS alias python to Python 3
 if [ "$(uname -s)" == "Darwin" ]; then
-    alias python = python3
+    alias python=python3
 fi
 
 if [[ $1 == "webots" ]]; then
@@ -12,12 +12,11 @@ if [[ $1 == "webots" ]]; then
     python -m http.server 8081 --directory server/website &
 
     if [ "$(uname -s)" == "Linux" ]; then
-        xdg-open http://localhost:8081/ &
-        disown
-        # Open webots manually
+        xdg-open http://localhost:8081/ & disown
+        # Open webots world manually
     elif [ "$(uname -s)" == "Darwin" ]; then
         open http://localhost:8081/
-        # Open webots manually
+        # Open webots world manually
     else
         start http://localhost:8081/
         start webots/worlds/world.wbt

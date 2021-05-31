@@ -1,3 +1,4 @@
-# Dont commit generated map json files or webot files
+# Dont commit pycache, generated map json files or webot files
+__pycache__
 webots/
 map.json
