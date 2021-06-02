@@ -1,7 +1,7 @@
 // Constants
 const DEBUG = false;
 
-const WEBSOCKETS_PORT = 8080;
+const WEBSOCKETS_URL = 'ws://127.0.0.1:8080/';
 
 const TICK_MANUAL = 0;
 const TICK_AUTO = 1;
@@ -13,11 +13,7 @@ const TILE_CHEST = 2;
 // App
 let websocket, mapMeshesGroup, floorGeometry, cubeGeometry,
     unkownMaterial, floorMaterial, chestMaterial;
-const ledOffColor = 0x000000, mapMeshes = [], robotGroups = [];
-
-function rand (min, max) {
-    return Math.floor(Math.random() * (max - min + 1)) + min;
-}
+const ledOffColor = { r: 0, g: 0, b: 0 }, mapMeshes = [], robotGroups = [];
 
 const app = new Vue({
     el: '#app',
@@ -30,163 +26,42 @@ const app = new Vue({
         connected: false,
         tickType: undefined,
         tickSpeed: undefined,
+        activeProgramId: undefined,
+        programs: undefined,
 
         mapWidth: undefined,
         mapHeight: undefined,
-        mapData: [],
+        mapData: undefined,
 
         robots: [
-            { id: 1, color: 0xff0000, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
-            { id: 2, color: 0x00ff00, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
-            { id: 3, color: 0xffff00, x: undefined, y: undefined, lift: undefined, directions: [], connected: false },
-            { id: 4, color: 0x0000ff, x: undefined, y: undefined, lift: undefined, directions: [], connected: false }
+            { id: 1, x: undefined, y: undefined, lift: undefined, color: { r: undefined, g: undefined, b: undefined }, directions: [], connected: false },
+            { id: 2, x: undefined, y: undefined, lift: undefined, color: { r: undefined, g: undefined, b: undefined }, directions: [], connected: false },
+            { id: 3, x: undefined, y: undefined, lift: undefined, color: { r: undefined, g: undefined, b: undefined }, directions: [], connected: false },
+            { id: 4, x: undefined, y: undefined, lift: undefined, color: { r: undefined, g: undefined, b: undefined }, directions: [], connected: false }
         ],
 
         sendForm: {
             robot_id: 1,
-            robot_x: 1,
-            robot_y: 1
+            robot_x: 10,
+            robot_y: 0
         },
 
         pickupForm: {
             weight: 250,
-            robot_x1: 1,
-            robot_y1: 1,
+            robot_x1: 0,
+            robot_y1: 0,
             robot_x2: 10,
-            robot_y2: 1
-        },
-
-        activeProgram: 'Discover',
-        programs: {
-            Nothing() {},
-
-            Discover() {
-                // Get list off all unkown tiles that are not arounded with chests
-                let unkownTiles = [];
-                const unkownMap = [];
-                for (let y = 0; y < this.mapHeight; y++) {
-                    for (let x = 0; x < this.mapWidth; x++) {
-                        if (
-                            this.mapData[y * this.mapWidth + x] == TILE_UNKOWN
-                        ) {
-                            if (
-                                (x > 0 && this.mapData[y * this.mapWidth + (x - 1)] == TILE_CHEST) &&
-                                (y > 0 && this.mapData[(y - 1) * this.mapWidth + x] == TILE_CHEST) &&
-                                (x < this.mapWidth - 1 && this.mapData[y * this.mapWidth + (x + 1)] == TILE_CHEST) &&
-                                (y < this.mapHeight - 1 && this.mapData[(y + 1) * this.mapWidth + x] == TILE_CHEST)
-                            ) {
-                                continue;
-                            }
-
-                            unkownTiles.push({ x: x, y: y });
-                            unkownMap[y * this.mapWidth + x] = true;
-                        } else {
-                            unkownMap[y * this.mapWidth + x] = false;
-                        }
-                    }
-                }
-
-                if (unkownTiles.length > 0) {
-                    const getTileNeighbors = point => {
-                        const neighbors = [];
-                        if (point.x > 0)
-                            neighbors.push({ "x": point.x - 1, "y": point.y });
-                        if (point.y > 0)
-                            neighbors.push({ "x": point.x, "y": point.y - 1 });
-                        if (point.x < this.mapWidth - 1)
-                            neighbors.push({ "x": point.x + 1, "y": point.y });
-                        if (point.y < this.mapHeight - 1)
-                            neighbors.push({ "x": point.x, "y": point.y + 1 });
-                        return neighbors;
-                    };
-
-                    for (const robot of this.robots) {
-                        if (robot.directions.length == 0 && unkownTiles.length > 0) {
-                            // A even simpeler version off the path finding
-                            // algorithm to search for finding the closesd unkown tile
-                            const frontier = [ { x: robot.x, y: robot.y } ];
-                            const cameFrom = [];
-                            while (frontier.length > 0) {
-                                const current = frontier.shift();
-
-                                if (unkownMap[current.y * this.mapWidth + current.x]) {
-                                    // Drive robot to closest unkown tile
-                                    websocket.send(JSON.stringify({
-                                        type: 'new_direction',
-                                        data: {
-                                            robot_id: robot.id,
-                                            direction: {
-                                                id: Date.now(),
-                                                x: current.x,
-                                                y: current.y
-                                            }
-                                        }
-                                    }));
-
-                                    // Remove tile from list
-                                    unkownTiles = unkownTiles.filter(tile => !(tile.x == current.x && tile.y == current.y));
-                                    unkownMap[current.y * this.mapWidth + current.x] = false;
-                                    break;
-                                }
-
-                                const neighbors = getTileNeighbors(current);
-                                neighbors.sort(() => (Math.random() >= 0.5) ? 1 : -1);
-                                for (const neighbor of neighbors) {
-                                    const tileType = this.mapData[neighbor.y * this.mapWidth + neighbor.x];
-                                    if (!(tileType == TILE_FLOOR || tileType == TILE_UNKOWN)) {
-                                        continue;
-                                    }
-
-                                    if (cameFrom[neighbor.y * this.mapWidth + neighbor.x] == undefined) {
-                                        frontier.push(neighbor);
-                                        cameFrom[neighbor.y * this.mapWidth + neighbor.x] = current;
-                                    }
-                                }
-                            }
-                        }
-                    }
-                }
-            },
-
-            Random() {
-                for (const robot of this.robots) {
-                    if (robot.directions.length == 0) {
-                        // Drive robot to a random floor tile
-                        let x, y;
-                        do {
-                            x = rand(1, this.mapWidth - 2);
-                            y = rand(1, this.mapHeight - 2);
-                        } while (this.mapData[y * this.mapWidth + x] != TILE_FLOOR);
-
-                        websocket.send(JSON.stringify({
-                            type: 'new_direction',
-                            data: {
-                                robot_id: robot.id,
-                                direction: {
-                                    id: Date.now(),
-                                    x: x,
-                                    y: y
-                                }
-                            }
-                        }));
-                    }
-                }
-            }
+            robot_y2: 0
         }
     },
 
     methods: {
         websocketsConnect() {
-            websocket = new WebSocket('ws://127.0.0.1:' + WEBSOCKETS_PORT + '/');
+            websocket = new WebSocket(WEBSOCKETS_URL);
 
             websocket.onopen = () => {
-                websocket.send(JSON.stringify({
-                    type: 'website_connect',
-                    data: {
-                        website_id: this.id
-                    }
-                }));
                 this.connected = true;
+                this.sendMessage('website_connect', { website_id: this.id });
             };
 
             websocket.onmessage = event => {
@@ -195,15 +70,46 @@ const app = new Vue({
                 }
                 const message = JSON.parse(event.data);
 
-                // Connect message
+                // World info message
+                if (message.type == 'world_info') {
+                    this.tickType = message.data.tick.type;
+                    this.tickSpeed = message.data.tick.speed;
+
+                    this.activeProgramId = message.data.active_program_id;
+                    this.programs = [];
+                    for (const program of message.data.programs) {
+                        this.programs.push({
+                            id: program.id,
+                            name: program.name
+                        });
+                    }
+
+                    this.mapWidth = message.data.map.width;
+                    this.mapHeight = message.data.map.height;
+                    this.mapData = [];
+                    for (let y = 0; y < this.mapHeight; y++) {
+                        this.mapData[y] = [];
+                        for (let x = 0; x < this.mapWidth; x++) {
+                            this.mapData[y][x] = message.data.map.data[y][x];
+                        }
+                    }
+
+                    this.startWorldSimulation();
+                }
+
+                // Robot connect message
                 if (message.type == 'robot_connect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
-                    this.worldUpdateTile(message.data.robot_x, message.data.robot_y, TILE_FLOOR);
-                    this.worldMoveRobot(robot.id, message.data.robot_x, message.data.robot_y);
-                    robot.lift = message.data.robot_lift;
+                    this.worldUpdateTile(message.data.robot.x, message.data.robot.y, TILE_FLOOR);
+                    this.worldMoveRobot(robot.id, message.data.robot.x, message.data.robot.y);
+                    robot.lift = message.data.robot.lift;
+
+                    robot.color.r = message.data.robot.color.red;
+                    robot.color.g = message.data.robot.color.green;
+                    robot.color.b = message.data.robot.color.blue;
 
                     robot.directions = [];
-                    for (const direction of message.data.directions) {
+                    for (const direction of message.data.robot.directions) {
                         robot.directions.push({
                             id: direction.id,
                             x: direction.x,
@@ -215,7 +121,7 @@ const app = new Vue({
                     robot.connected = true;
                 }
 
-                // Disconnect message
+                // Robot disconnect message
                 if (message.type == 'robot_disconnect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
                     robot.connected = false;
@@ -227,27 +133,20 @@ const app = new Vue({
                     }
                 }
 
-                // World info message
-                if (message.type == 'world_info') {
-                    this.tickType = message.data.tick_type;
-                    this.tickSpeed = message.data.tick_speed;
-
-                    this.mapWidth = message.data.map.width;
-                    this.mapHeight = message.data.map.height;
-                    for (let i = 0; i < this.mapHeight * this.mapWidth; i++) {
-                        this.mapData[i] = message.data.map.data[i];
-                    }
-
-                    this.startWorldSimulation();
-                }
-
                 // Update world info message
                 if (message.type == 'update_world_info') {
-                    if (message.data.tick_type != undefined) {
-                        this.tickType = message.data.tick_type;
+                    if (message.data.tick != undefined) {
+                        if (message.data.tick.type != undefined) {
+                            this.tickType = message.data.tick.type;
+                        }
+
+                        if (message.data.tick.speed != undefined) {
+                            this.tickSpeed = message.data.tick.speed;
+                        }
                     }
-                    if (message.data.tick_speed != undefined) {
-                        this.tickSpeed = message.data.tick_speed;
+
+                    if (message.data.active_program_id != undefined) {
+                        this.activeProgramId = message.data.active_program_id;
                     }
                 }
 
@@ -265,17 +164,21 @@ const app = new Vue({
                 // Cancel direction message
                 if (message.type == 'cancel_direction') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
-                    robot.directions = robot.directions.filter(direction => direction.id != message.data.direction.id);
+                    robot.directions = robot.directions.filter(direction => direction.id != message.data.direction_id);
                     this.worldUpdateRobotDestination(robot.id);
                 }
 
                 // Tick done message
                 if (message.type == 'robot_tick_done') {
-                    for (const mapUpdate of message.data.map) {
-                        this.worldUpdateTile(mapUpdate.x, mapUpdate.y, mapUpdate.type);
+                    if (message.data.map != undefined) {
+                        for (const mapUpdate of message.data.map) {
+                            this.worldUpdateTile(mapUpdate.x, mapUpdate.y, mapUpdate.type);
+                        }
                     }
 
-                    this.worldMoveRobot(message.data.robot_id, message.data.robot_x, message.data.robot_y);
+                    if (message.data.robot != undefined) {
+                        this.worldMoveRobot(message.data.robot_id, message.data.robot.x, message.data.robot.y);
+                    }
                 }
 
                 // Website tick message
@@ -289,98 +192,88 @@ const app = new Vue({
             };
         },
 
-        cancelDirection(robotId, directionId) {
-            if (websocket != undefined) {
-                websocket.send(JSON.stringify({
-                    type: 'cancel_direction',
-                    data: {
-                        robot_id: robotId,
-                        direction: {
-                            id: parseInt(directionId)
-                        }
-                    }
-                }));
+        sendMessage(type, data = {}) {
+            if (this.connected) {
+                websocket.send(JSON.stringify({ type: type, data: data }));
             }
+        },
+
+        cancelDirection(robotId, directionId) {
+            this.sendMessage('cancel_direction', {
+                robot_id: robotId,
+                direction_id: parseInt(directionId)
+            });
+        },
+
+        tickStop() {
+            this.tickType = TICK_MANUAL;
+            this.changeTickType();
         },
 
         changeTickType() {
-            if (this.connected) {
-                websocket.send(JSON.stringify({
-                    type: 'update_world_info',
-                    data: {
-                        tick_type: parseInt(this.tickType)
-                    }
-                }));
-            }
+            this.sendMessage('update_world_info', {
+                tick: {
+                    type: parseInt(this.tickType)
+                }
+            });
         },
 
         changeTickSpeed() {
-            if (this.connected) {
-                websocket.send(JSON.stringify({
-                    type: 'update_world_info',
-                    data: {
-                        tick_speed: parseInt(this.tickSpeed)
-                    }
-                }));
-            }
+            this.sendMessage('update_world_info', {
+                tick: {
+                    speed: parseInt(this.tickSpeed)
+                }
+            });
+        },
+
+        changeActiveProgramId() {
+            this.sendMessage('update_world_info', {
+                active_program_id: parseInt(this.activeProgramId)
+            });
         },
 
         tick() {
             if (this.tickType == TICK_MANUAL) {
-                websocket.send(JSON.stringify({
-                    type: 'world_tick',
-                    data: {}
-                }));
+                this.sendMessage('world_tick');
             }
         },
 
         sendFormSubmit() {
-            if (websocket != undefined) {
-                websocket.send(JSON.stringify({
-                    type: 'new_direction',
-                    data: {
-                        robot_id: this.sendForm.robot_id,
-                        direction: {
-                            id: Date.now(),
-                            x: parseInt(this.sendForm.robot_x),
-                            y: parseInt(this.sendForm.robot_y)
-                        }
-                    }
-                }));
-            }
+            this.sendMessage('new_direction', {
+                robot_id: this.sendForm.robot_id,
+                direction: {
+                    id: Date.now(),
+                    x: parseInt(this.sendForm.robot_x),
+                    y: parseInt(this.sendForm.robot_y)
+                }
+            });
         },
 
         pickupFormSubmit() {
-            if (websocket != undefined) {
+            if (this.connected) {
                 // Check if there is a robot with the lift that is waiting
                 const randomRobots = this.robots.slice().sort(() => (Math.random() >= 0.5) ? 1 : -1);
                 for (const robot of randomRobots) {
                     if (robot.directions.length == 0 && robot.lift >= this.pickupForm.weight) {
                         const directionId = Date.now();
 
-                        websocket.send(JSON.stringify({
-                            type: 'new_direction',
-                            data: {
-                                robot_id: robot.id,
-                                direction: {
-                                    id: directionId,
-                                    x: parseInt(this.pickupForm.robot_x1),
-                                    y: parseInt(this.pickupForm.robot_y1)
-                                }
+                        this.sendMessage('new_direction', {
+                            robot_id: robot.id,
+                            direction: {
+                                id: directionId,
+                                x: parseInt(this.pickupForm.robot_x1),
+                                y: parseInt(this.pickupForm.robot_y1)
                             }
-                        }));
+                        });
 
-                        websocket.send(JSON.stringify({
-                            type: 'new_direction',
-                            data: {
-                                robot_id: robot.id,
-                                direction: {
-                                    id: directionId + 1,
-                                    x: parseInt(this.pickupForm.robot_x2),
-                                    y: parseInt(this.pickupForm.robot_y2)
-                                }
+                        this.sendMessage('new_direction', {
+                            robot_id: robot.id,
+                            direction: {
+                                id: directionId + 1,
+                                x: parseInt(this.pickupForm.robot_x2),
+                                y: parseInt(this.pickupForm.robot_y2)
                             }
-                        }));
+                        });
 
                         return;
                     }
@@ -391,29 +284,23 @@ const app = new Vue({
                     if (robot.lift >= this.pickupForm.weight) {
                         const directionId = Date.now();
 
-                        websocket.send(JSON.stringify({
-                            type: 'new_direction',
-                            data: {
-                                robot_id: robot.id,
-                                direction: {
-                                    id: directionId,
-                                    x: parseInt(this.pickupForm.robot_x1),
-                                    y: parseInt(this.pickupForm.robot_y1)
-                                }
+                        this.sendMessage('new_direction', {
+                            robot_id: robot.id,
+                            direction: {
+                                id: directionId,
+                                x: parseInt(this.pickupForm.robot_x1),
+                                y: parseInt(this.pickupForm.robot_y1)
                             }
-                        }));
+                        });
 
-                        websocket.send(JSON.stringify({
-                            type: 'new_direction',
-                            data: {
-                                robot_id: robot.id,
-                                direction: {
-                                    id: directionId + 1,
-                                    x: parseInt(this.pickupForm.robot_x2),
-                                    y: parseInt(this.pickupForm.robot_y2)
-                                }
+                        this.sendMessage('new_direction', {
+                            robot_id: robot.id,
+                            direction: {
+                                id: directionId + 1,
+                                x: parseInt(this.pickupForm.robot_x2),
+                                y: parseInt(this.pickupForm.robot_y2)
                             }
-                        }));
+                        });
 
                         return;
                     }
@@ -422,11 +309,11 @@ const app = new Vue({
         },
 
         worldUpdateTile(x, y, type) {
-            if (type != this.mapData[y * this.mapWidth + x]) {
-                this.mapData[y * this.mapWidth + x] = type;
+            if (type != this.mapData[y][x]) {
+                this.mapData[y][x] = type;
 
                 if (mapMeshes.length > 0) {
-                    mapMeshesGroup.remove(mapMeshes[y * this.mapWidth + x]);
+                    mapMeshesGroup.remove(mapMeshes[y][x]);
 
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
@@ -443,7 +330,7 @@ const app = new Vue({
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
 
-                    mapMeshes[y * this.mapWidth + x] = tileMesh;
+                    mapMeshes[y][x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
                 }
             }
@@ -459,10 +346,11 @@ const app = new Vue({
             if (robotGroups.length > 0) {
                 const robotsGroup = robotGroups[robot.id - 1];
 
-                robotsGroup.upLedMesh.material.color.setHex(robot.y - old_robot_y < 0 ? robot.color : ledOffColor);
-                robotsGroup.leftLedMesh.material.color.setHex(robot.x - old_robot_x < 0 ? robot.color : ledOffColor);
-                robotsGroup.rightLedMesh.material.color.setHex(robot.x - old_robot_x > 0 ? robot.color : ledOffColor);
-                robotsGroup.downLedMesh.material.color.setHex(robot.y - old_robot_y > 0 ? robot.color : ledOffColor);
+                robotsGroup.robotMesh.material.color = robot.color;
+                robotsGroup.upLedMesh.material.color = robot.y - old_robot_y < 0 ? robot.color : ledOffColor;
+                robotsGroup.leftLedMesh.material.color = robot.x - old_robot_x < 0 ? robot.color : ledOffColor;
+                robotsGroup.rightLedMesh.material.color = robot.x - old_robot_x > 0 ? robot.color : ledOffColor;
+                robotsGroup.downLedMesh.material.color = robot.y - old_robot_y > 0 ? robot.color : ledOffColor;
 
                 if (robotsGroup.visible) {
                     const position = { x: robotsGroup.position.x, y: robotsGroup.position.z };
@@ -490,6 +378,7 @@ const app = new Vue({
                 const robot = this.robots.find(robot => robot.id == robotId);
                 const robotDestinationGroup = robotGroups[robot.id - 1].destinationGroup;
                 if (robot.directions.length > 0) {
+                    robotDestinationGroup.destinationArrowMesh.material.color = robot.color;
                     robotDestinationGroup.visible = true;
                     if (robotDestinationGroup.position.x != 0 && robotDestinationGroup.position.z != 0) {
                         const position = { x: robotDestinationGroup.position.x, y: robotDestinationGroup.position.z };
@@ -550,8 +439,9 @@ const app = new Vue({
             chestMaterial = new THREE.MeshBasicMaterial({ map: new THREE.TextureLoader().load('/images/chest.jpg') });
 
             for (let y = 0; y < this.mapHeight; y++) {
+                mapMeshes[y] = [];
                 for (let x = 0; x < this.mapWidth; x++) {
-                    const type = this.mapData[y * this.mapWidth + x];
+                    const type = this.mapData[y][x];
 
                     let geometry
                     if (type == TILE_UNKOWN || type == TILE_CHEST) geometry = cubeGeometry;
@@ -568,7 +458,7 @@ const app = new Vue({
                     if (type == TILE_FLOOR) tileMesh.position.y = -0.5;
                     if (type == TILE_FLOOR) tileMesh.rotation.x = -Math.PI / 2;
 
-                    mapMeshes[y * this.mapWidth + x] = tileMesh;
+                    mapMeshes[y][x] = tileMesh;
                     mapMeshesGroup.add(tileMesh);
                 }
             }
@@ -636,7 +526,12 @@ const app = new Vue({
                 scene.add(robotGroup);
                 robotGroups[robot.id - 1] = robotGroup;
 
-                robotGroup.add(new THREE.Mesh(robotGeometry, new THREE.MeshBasicMaterial({ color: robot.color, map: robotTexure })));
+                const robotMesh = new THREE.Mesh(robotGeometry, new THREE.MeshBasicMaterial({ map: robotTexure }));
+                if (robot.connected) {
+                    robotMesh.material.color = robot.color;
+                }
+                robotGroup.robotMesh = robotMesh;
+                robotGroup.add(robotMesh);
 
                 robotGroup.upLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
                 robotGroup.upLedMesh.position.y = 0.5;
@@ -668,9 +563,10 @@ const app = new Vue({
                 }
                 scene.add(robotGroup.destinationGroup);
 
-                const destinationArrowMesh = new THREE.Mesh(destinationArrowGeometry, new THREE.MeshBasicMaterial({ color: robot.color }));
+                const destinationArrowMesh = new THREE.Mesh(destinationArrowGeometry, new THREE.MeshBasicMaterial());
                 destinationArrowMesh.rotation.x = Math.PI;
                 destinationArrowMesh.position.y = 1.5;
+                robotGroup.destinationGroup.destinationArrowMesh = destinationArrowMesh;
                 robotGroup.destinationGroup.add(destinationArrowMesh);
             }
 

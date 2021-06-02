@@ -27,7 +27,9 @@
                 <h2>Robots</h2>
                 <ul>
                     <li v-for="robot in robots" :key="robot.id">
-                        <b :style="{ color: '#' + robot.color.toString(16).padStart(6, '0') }">Robot {{ robot.id }}</b>: {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} - {{ robot.lift != undefined ? robot.lift : '?' }} kg - {{ robot.connected ? 'Connected' : 'Disconnected'}}
+                        <b :style="{ color: 'rgb(' + (robot.color.r * 255) + ', ' + (robot.color.g * 255) + ', ' + (robot.color.b * 255) + ')' }">Robot {{ robot.id }}</b>:
+                        {{ robot.x != undefined ? robot.x : '?' }} x {{ robot.y != undefined ? robot.y : '?' }} -
+                        {{ robot.lift != undefined ? robot.lift : '?' }} kg - {{ robot.connected ? 'Connected' : 'Disconnected'}}
                         <ul v-if="robot.directions.length > 0">
                             <li v-for="direction, index in robot.directions" :key="direction.id">
                                 Drive to: {{ direction.x }} x {{ direction.y }} <b v-if="index == 0">CURRENT</b> <button @click="cancelDirection(robot.id, direction.id)">Cancel</button>
@@ -43,11 +45,12 @@
             <div class="controls box">
                 <h2>Controls</h2>
                 <p>
-                    <button @click="tickType = tickManual">Stop!</button>
+                    <button @click="tickStop">Stop!</button>
                     <select v-model="tickType" @change="changeTickType">
                         <option :value="tickManual">Manual Tick</option>
                         <option :value="tickAuto">Auto Tick</option>
                     </select>
+
                     <span v-if="tickType == tickAuto">
                         Speed:
                         <select v-model="tickSpeed" @change="changeTickSpeed">
@@ -57,6 +60,13 @@
                     <span v-else>
                         <button @click="tick">Tick</button>
                     </span>
+                </p>
+
+                <p>
+                    Active program:
+                    <select v-model="activeProgramId" @change="changeActiveProgramId">
+                        <option v-for="program in programs" :key="program.id" :value="program.id">{{ program.name }}</option>
+                    </select>
                 </p>
 
                 <hr>
@@ -70,9 +80,9 @@
                             </option>
                         </select>
                         to location
-                        <input class="number-input" type="number" v-model="sendForm.robot_x" min="1" :max="mapWidth - 2">
+                        <input class="number-input" type="number" v-model="sendForm.robot_x" min="0" :max="mapWidth - 1">
                         x
-                        <input class="number-input" type="number" v-model="sendForm.robot_y" min="1" :max="mapHeight - 2">
+                        <input class="number-input" type="number" v-model="sendForm.robot_y" min="0" :max="mapHeight - 1">
                         <button type="sumbit">Send</button>
                     </p>
                 </form>
@@ -84,26 +94,19 @@
                         Pickup
                         <input  class="weight-input" type="number" v-model="pickupForm.weight" min="1" :max="Math.max(...robots.map(robot => robot.lift))">
                         kg from
-                        <input  class="number-input" type="number" v-model="pickupForm.robot_x1" min="1" :max="mapWidth - 2">
+                        <input  class="number-input" type="number" v-model="pickupForm.robot_x1" min="0" :max="mapWidth - 1">
                         x
-                        <input  class="number-input" type="number" v-model="pickupForm.robot_y1" min="1" :max="mapHeight - 2">
+                        <input  class="number-input" type="number" v-model="pickupForm.robot_y1" min="0" :max="mapHeight - 1">
                     </p>
 
                     <p>
                         and deliver to
-                        <input  class="number-input" type="number" v-model="pickupForm.robot_x2" min="1" :max="mapWidth - 2">
+                        <input  class="number-input" type="number" v-model="pickupForm.robot_x2" min="0" :max="mapWidth - 1">
                         x
-                        <input  class="number-input" type="number" v-model="pickupForm.robot_y2" min="1" :max="mapHeight - 2">
+                        <input  class="number-input" type="number" v-model="pickupForm.robot_y2" min="0" :max="mapHeight - 1">
                         <button>Send</button>
                     </p>
                 </form>
-                <hr>
-                <p>
-                    Program:
-                    <select v-model="activeProgram">
-                        <option v-for="program in programs" :key="program.name" :value="program.name">{{ program.name }}</option>
-                    </select>
-                </p>
             </div>
         </div>
 
