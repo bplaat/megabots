@@ -1,5 +1,3 @@
-# Dont commit pycache, generated webot files and generated map json file
-__pycache__
-webots/controllers/
-webots/worlds/
-webots/map.json
+# Dont commit generated map json file and generated webot files
+world.wbt
+map.json

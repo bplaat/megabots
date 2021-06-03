@@ -20,14 +20,15 @@ TILE_CHEST = 2
 
 # Simple asyncio timer class
 class Timer:
-    def __init__(self, timeout, callback):
+    def __init__(self, timeout, callback, extra):
         self._timeout = timeout
         self._callback = callback
+        self._extra = extra
         self._task = asyncio.ensure_future(self._job())
 
     async def _job(self):
         await asyncio.sleep(self._timeout)
-        await self._callback()
+        await self._callback(self._extra)
 
     def cancel(self):
         self._task.cancel()
@@ -72,24 +73,35 @@ async def broadcastMessage(type, data = {}):
     for other in others:
         await sendMessage(other, type, data)
 
-async def sendWorldMessage(item):
-    programsData = []
-    for program in programs:
-        programsData.append({ "id": program["id"], "name": program["name"] })
+async def sendWorldMessageTimerCallback(item):
+    # Wait until Webots supervisor is connected and given map data
+    if mapData == None:
+        timer = Timer(250, sendWorldMessageTimerCallback, item)
+    else:
+        sendWorldMessage(item)
 
-    await sendMessage(item, "world_info", {
-        "tick": {
-            "type": tickType,
-            "speed": tickSpeed
-        },
-        "active_program_id": activeProgram["id"],
-        "programs": programsData,
-        "map": {
-            "width": mapWidth,
-            "height": mapHeight,
-            "data": mapData
-        }
-    })
+async def sendWorldMessage(item):
+    # Wait until Webots supervisor is connected and given map data
+    if mapData == None:
+        timer = Timer(250, sendWorldMessageTimerCallback, item)
+    else:
+        programsData = []
+        for program in programs:
+            programsData.append({ "id": program["id"], "name": program["name"] })
+
+        await sendMessage(item, "world_info", {
+            "tick": {
+                "type": tickType,
+                "speed": tickSpeed
+            },
+            "active_program_id": activeProgram["id"],
+            "programs": programsData,
+            "map": {
+                "width": mapWidth,
+                "height": mapHeight,
+                "data": mapData
+            }
+        })
 
 # Get all the neigbors of a point
 def getTileNeighbors(point):
@@ -212,10 +224,10 @@ async def tick():
     currentRobotIndex += 1
 
 # Ticker timer callback
-async def timerCallback():
+async def timerCallback(extra):
     await tick()
     if tickType == TICK_AUTO:
-        Timer(tickSpeed / 1000, timerCallback)
+        Timer(tickSpeed / 1000, timerCallback, None)
 
 async def websocketConnection(websocket, path):
     global mapWidth, mapHeight, mapData, others, tickType, tickSpeed, activeProgram, currentRobotIndex
@@ -385,10 +397,11 @@ async def websocketConnection(websocket, path):
                     messageData["tick"]["type"] = tickType
 
                     if oldTickType == TICK_MANUAL and tickType == TICK_AUTO:
-                        Timer(tickSpeed / 1000, timerCallback)
+                        Timer(tickSpeed / 1000, timerCallback, None)
 
             if "active_program_id" in message["data"]:
                 activeProgram = next((program for program in programs if program["id"] == message["data"]["active_program_id"]), None)
+                messageData["active_program_id"] = activeProgram["id"]
 
             await broadcastMessage("update_world_info", messageData)
 
