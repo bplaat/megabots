@@ -100,6 +100,8 @@ const app = new Vue({
                 // Robot connect message
                 if (message.type == 'robot_connect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
+                    robot.connected = true;
+
                     this.worldMoveRobot(robot.id, message.data.robot.x, message.data.robot.y);
                     robot.lift = message.data.robot.lift;
 
@@ -116,8 +118,6 @@ const app = new Vue({
                         })
                     }
                     this.worldUpdateRobotDestination(robot.id);
-
-                    robot.connected = true;
                 }
 
                 // Robot disconnect message
@@ -345,7 +345,7 @@ const app = new Vue({
             robot.x = x;
             robot.y = y;
 
-            if (robotGroups.length > 0) {
+            if (robot.connected && robotGroups.length > 0) {
                 const robotsGroup = robotGroups[robot.id - 1];
 
                 robotsGroup.robotMesh.material.color = robot.color;
@@ -381,7 +381,7 @@ const app = new Vue({
             if (robotGroups.length > 0) {
                 const robot = this.robots.find(robot => robot.id == robotId);
                 const robotDestinationGroup = robotGroups[robot.id - 1].destinationGroup;
-                if (robot.directions.length > 0) {
+                if (robot.connected && robot.directions.length > 0) {
                     robotDestinationGroup.destinationArrowMesh.material.color = robot.color;
                     robotDestinationGroup.visible = true;
                     if (robotDestinationGroup.position.x != 0 && robotDestinationGroup.position.z != 0) {
@@ -521,7 +521,7 @@ const app = new Vue({
             for (const robot of this.robots) {
                 // Robot group
                 const robotGroup = new THREE.Group();
-                if (robot.x != undefined && robot.y != undefined) {
+                if (robot.connected) {
                     robotGroup.position.x = robot.x - this.mapWidth / 2;
                     robotGroup.position.z = robot.y - this.mapHeight / 2;
                 } else {

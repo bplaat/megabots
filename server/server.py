@@ -128,7 +128,7 @@ async def discoverProgram():
         return
 
     for robot in robots:
-        if len(robot["directions"]) == 0 and len(unkownTiles) > 0:
+        if robot["websocket"] != None and len(robot["directions"]) == 0 and len(unkownTiles) > 0:
             # A even simpeler version off the path finding
             # algorithm to search for finding the closesd unkown tile
             frontier = [ { "x": robot["x"], "y": robot["y"] } ]
@@ -171,7 +171,7 @@ async def discoverProgram():
 # Random directions program
 async def randomDirectionsProgram():
     for robot in robots:
-        if len(robot["directions"]) == 0:
+        if robot["websocket"] != None and len(robot["directions"]) == 0:
             # Drive robot to a random floor tile
             x = None
             y = None
@@ -212,9 +212,12 @@ async def tick():
 
     # Tick first robot in the robot_tick_done will the next robot be ticked
     currentRobotIndex = 0
-    log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
-    await broadcastMessage("robot_tick", { "robot_id": robots[currentRobotIndex]["id"] })
-    currentRobotIndex += 1
+    while currentRobotIndex < len(robots) and robots[currentRobotIndex]["websocket"] == None:
+        currentRobotIndex += 1
+    if currentRobotIndex < len(robots):
+        log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
+        await broadcastMessage("robot_tick", { "robot_id": robots[currentRobotIndex]["id"] })
+        currentRobotIndex += 1
 
 # Ticker timer callback
 async def timerCallback(extra):
@@ -488,9 +491,12 @@ async def websocketConnection(websocket, path):
             await broadcastMessage("robot_tick_done", messageData)
 
             if currentRobotIndex < len(robots):
-                log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
-                await broadcastMessage("robot_tick", { "robot_id": robots[currentRobotIndex]["id"] })
-                currentRobotIndex += 1
+                while currentRobotIndex < len(robots) and robots[currentRobotIndex]["websocket"] == None:
+                    currentRobotIndex += 1
+                if currentRobotIndex < len(robots):
+                    log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
+                    await broadcastMessage("robot_tick", { "robot_id": robots[currentRobotIndex]["id"] })
+                    currentRobotIndex += 1
 
     # Disconnect message for robots
     for robot in robots:
