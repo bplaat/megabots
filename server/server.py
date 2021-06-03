@@ -44,9 +44,9 @@ tickSpeed = 200
 
 # Robots
 robots = [
-    { "id": 1, "x": None, "y": None, "lift": 200, "color": { "red": 1, "green": 0, "blue": 0 },"directions": [], "websocket": None },
-    { "id": 2, "x": None, "y": None, "lift": 300, "color": { "red": 0, "green": 1, "blue": 0 },"directions": [], "websocket": None },
-    { "id": 3, "x": None, "y": None, "lift": 500, "color": { "red": 1, "green": 1, "blue": 0 },"directions": [], "websocket": None },
+    { "id": 1, "x": None, "y": None, "lift": 200, "color": { "red": 1, "green": 0, "blue": 0 }, "directions": [], "websocket": None },
+    { "id": 2, "x": None, "y": None, "lift": 300, "color": { "red": 0, "green": 1, "blue": 0 }, "directions": [], "websocket": None },
+    { "id": 3, "x": None, "y": None, "lift": 500, "color": { "red": 1, "green": 1, "blue": 0 }, "directions": [], "websocket": None },
     { "id": 4, "x": None, "y": None, "lift": 250, "color": { "red": 0, "green": 0, "blue": 1 }, "directions": [], "websocket": None }
 ]
 
@@ -73,35 +73,28 @@ async def broadcastMessage(type, data = {}):
     for other in others:
         await sendMessage(other, type, data)
 
-async def sendWorldMessageTimerCallback(item):
-    # Wait until Webots supervisor is connected and given map data
-    if mapData == None:
-        timer = Timer(250, sendWorldMessageTimerCallback, item)
-    else:
-        sendWorldMessage(item)
-
 async def sendWorldMessage(item):
     # Wait until Webots supervisor is connected and given map data
-    if mapData == None:
-        timer = Timer(250, sendWorldMessageTimerCallback, item)
-    else:
-        programsData = []
-        for program in programs:
-            programsData.append({ "id": program["id"], "name": program["name"] })
+    while mapData == None:
+        log("Waiting for supervisor...")
+        await asyncio.sleep(250 / 1000)
 
-        await sendMessage(item, "world_info", {
-            "tick": {
-                "type": tickType,
-                "speed": tickSpeed
-            },
-            "active_program_id": activeProgram["id"],
-            "programs": programsData,
-            "map": {
-                "width": mapWidth,
-                "height": mapHeight,
-                "data": mapData
-            }
-        })
+    programsData = []
+    for program in programs:
+        programsData.append({ "id": program["id"], "name": program["name"] })
+    await sendMessage(item, "world_info", {
+        "tick": {
+            "type": tickType,
+            "speed": tickSpeed
+        },
+        "active_program_id": activeProgram["id"],
+        "programs": programsData,
+        "map": {
+            "width": mapWidth,
+            "height": mapHeight,
+            "data": mapData
+        }
+    })
 
 # Get all the neigbors of a point
 def getTileNeighbors(point):

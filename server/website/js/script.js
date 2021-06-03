@@ -1,5 +1,5 @@
 // Constants
-const DEBUG = true;
+const DEBUG = false;
 
 const WEBSOCKETS_URL = 'ws://127.0.0.1:8080/';
 
@@ -100,7 +100,6 @@ const app = new Vue({
                 // Robot connect message
                 if (message.type == 'robot_connect') {
                     const robot = this.robots.find(robot => robot.id == message.data.robot_id);
-                    this.worldUpdateTile(message.data.robot.x, message.data.robot.y, TILE_FLOOR);
                     this.worldMoveRobot(robot.id, message.data.robot.x, message.data.robot.y);
                     robot.lift = message.data.robot.lift;
 
@@ -178,6 +177,9 @@ const app = new Vue({
 
                     if (message.data.robot != undefined) {
                         this.worldMoveRobot(message.data.robot_id, message.data.robot.x, message.data.robot.y);
+                    } else {
+                        const robot = this.robots.find(robot => robot.id == message.data.robot_id);
+                        this.worldMoveRobot(robot.id, robot.x, robot.y);
                     }
                 }
 
@@ -347,10 +349,12 @@ const app = new Vue({
                 const robotsGroup = robotGroups[robot.id - 1];
 
                 robotsGroup.robotMesh.material.color = robot.color;
-                robotsGroup.upLedMesh.material.color = robot.y - old_robot_y < 0 ? robot.color : ledOffColor;
-                robotsGroup.leftLedMesh.material.color = robot.x - old_robot_x < 0 ? robot.color : ledOffColor;
-                robotsGroup.rightLedMesh.material.color = robot.x - old_robot_x > 0 ? robot.color : ledOffColor;
-                robotsGroup.downLedMesh.material.color = robot.y - old_robot_y > 0 ? robot.color : ledOffColor;
+                if (old_robot_x != undefined && old_robot_y != undefined) {
+                    robotsGroup.upLedMesh.material.color = robot.y - old_robot_y < 0 ? robot.color : ledOffColor;
+                    robotsGroup.leftLedMesh.material.color = robot.x - old_robot_x < 0 ? robot.color : ledOffColor;
+                    robotsGroup.rightLedMesh.material.color = robot.x - old_robot_x > 0 ? robot.color : ledOffColor;
+                    robotsGroup.downLedMesh.material.color = robot.y - old_robot_y > 0 ? robot.color : ledOffColor;
+                }
 
                 if (robotsGroup.visible) {
                     const position = { x: robotsGroup.position.x, y: robotsGroup.position.z };
@@ -533,22 +537,26 @@ const app = new Vue({
                 robotGroup.robotMesh = robotMesh;
                 robotGroup.add(robotMesh);
 
-                robotGroup.upLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.upLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial());
+                robotGroup.upLedMesh.material.color = ledOffColor;
                 robotGroup.upLedMesh.position.y = 0.5;
                 robotGroup.upLedMesh.position.z = -0.3;
                 robotGroup.add(robotGroup.upLedMesh);
 
-                robotGroup.leftLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.leftLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial());
+                robotGroup.leftLedMesh.material.color = ledOffColor;
                 robotGroup.leftLedMesh.position.x = -0.3;
                 robotGroup.leftLedMesh.position.y = 0.5;
                 robotGroup.add(robotGroup.leftLedMesh);
 
-                robotGroup.rightLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.rightLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial());
+                robotGroup.rightLedMesh.material.color = ledOffColor;
                 robotGroup.rightLedMesh.position.x = 0.3;
                 robotGroup.rightLedMesh.position.y = 0.5;
                 robotGroup.add(robotGroup.rightLedMesh);
 
-                robotGroup.downLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial({ color: ledOffColor }));
+                robotGroup.downLedMesh = new THREE.Mesh(ledGeometry, new THREE.MeshBasicMaterial());
+                robotGroup.downLedMesh.material.color = ledOffColor;
                 robotGroup.downLedMesh.position.y = 0.5;
                 robotGroup.downLedMesh.position.z = 0.3;
                 robotGroup.add(robotGroup.downLedMesh);
@@ -564,6 +572,7 @@ const app = new Vue({
                 scene.add(robotGroup.destinationGroup);
 
                 const destinationArrowMesh = new THREE.Mesh(destinationArrowGeometry, new THREE.MeshBasicMaterial());
+                destinationArrowMesh.material.color = ledOffColor;
                 destinationArrowMesh.rotation.x = Math.PI;
                 destinationArrowMesh.position.y = 1.5;
                 robotGroup.destinationGroup.destinationArrowMesh = destinationArrowMesh;

@@ -79,18 +79,21 @@ async def websocketConnection():
             # Read sensors message
             if message["type"] == "read_sensors":
                 otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+
+                robotX = otherRobot["x"]
+                robotY = otherRobot["y"]
                 if "robot" in message["data"]:
-                    otherRobot["x"] = message["data"]["robot"]["x"]
-                    otherRobot["y"] = message["data"]["robot"]["y"]
+                    robotX = message["data"]["robot"]["x"]
+                    robotY = message["data"]["robot"]["y"]
 
                 log("Read sensors from Robot " + str(otherRobot["id"]))
                 await sendMessage("read_sensors_done", {
                     "robot_id": otherRobot["id"],
                     "sensors": {
-                        "up": otherRobot["y"] == 0 or mapData[otherRobot["y"] - 1][otherRobot["x"]] == TILE_CHEST,
-                        "left": otherRobot["x"] == 0 or mapData[otherRobot["y"]][otherRobot["x"] - 1] == TILE_CHEST,
-                        "right": otherRobot["x"] == mapWidth - 1 or mapData[otherRobot["y"]][otherRobot["x"] + 1] == TILE_CHEST,
-                        "down": otherRobot["y"] == mapHeight - 1 or mapData[otherRobot["y"] + 1][otherRobot["x"]] == TILE_CHEST
+                        "up": robotY == 0 or mapData[robotY - 1][robotX] == TILE_CHEST,
+                        "left": robotX == 0 or mapData[robotY][robotX - 1] == TILE_CHEST,
+                        "right": robotX == mapWidth - 1 or mapData[robotY][robotX + 1] == TILE_CHEST,
+                        "down": robotY == mapHeight - 1 or mapData[robotY + 1][robotX] == TILE_CHEST
                     }
                 })
 

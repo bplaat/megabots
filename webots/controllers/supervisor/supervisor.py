@@ -1,8 +1,9 @@
 #!/usr/bin/env python
 
-# MegaBots Webots Supervisor Simulator
+# MegaBots Webots Supervisor
 
 import asyncio
+from controller import Supervisor
 import json
 import time
 import websockets
@@ -27,12 +28,60 @@ mapHeight = mapFileData["height"]
 mapData = mapFileData["data"]
 
 # Robots
+supervisor = Supervisor()
 robots = [
     { "id": 1, "x": None, "y": None, "connected": False },
     { "id": 2, "x": None, "y": None, "connected": False },
     { "id": 3, "x": None, "y": None, "connected": False },
     { "id": 4, "x": None, "y": None, "connected": False }
 ]
+
+updateRobotCounter = 0
+def updateRobotPosition(robot, x, y):
+    global updateRobotCounter
+
+    oldRobotX = robot["x"]
+    oldRobotY = robot["y"]
+    robot["x"] = x
+    robot["y"] = y
+
+    robotNode = supervisor.getFromDef("robot_" + str(robot["id"]))
+    robotNode.getField("translation").setSFVec3f([
+        (robot["x"] - mapWidth / 2) / 10 + 0.05,
+        0.05,
+        (robot["y"] - mapHeight / 2) / 10 + 0.05
+    ])
+
+    if oldRobotX != None and oldRobotY != None:
+        upLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_up_led")
+        if robot["y"] - oldRobotY < 0:
+            upLedNode.getField("diffuseColor").setSFColor([ 1, 1, 1 ])
+        else:
+            upLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
+
+        leftLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_left_led")
+        if robot["x"] - oldRobotX < 0:
+            leftLedNode.getField("diffuseColor").setSFColor([ 1, 1, 1 ])
+        else:
+            leftLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
+
+        rightLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_right_led")
+        if robot["x"] - oldRobotX > 0:
+            rightLedNode.getField("diffuseColor").setSFColor([ 1, 1, 1 ])
+        else:
+            rightLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
+
+        downLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_down_led")
+        if robot["y"] - oldRobotY > 0:
+            downLedNode.getField("diffuseColor").setSFColor([ 1, 1, 1 ])
+        else:
+            downLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
+
+    if updateRobotCounter == 3:
+        updateRobotCounter = 0
+        supervisor.step(int(supervisor.getBasicTimeStep()))
+    else:
+        updateRobotCounter += 1
 
 # Simple log function
 def log(line):
@@ -65,8 +114,7 @@ async def websocketConnection():
             # Robot connect message
             if message["type"] == "robot_connect":
                 otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
-                otherRobot["x"] = message["data"]["robot"]["x"]
-                otherRobot["y"] = message["data"]["robot"]["y"]
+                updateRobotPosition(otherRobot, message["data"]["robot"]["x"], message["data"]["robot"]["y"])
                 otherRobot["connected"] = True
                 log("Robot " + str(otherRobot["id"]) + " is connected")
 
@@ -79,18 +127,21 @@ async def websocketConnection():
             # Read sensors message
             if message["type"] == "read_sensors":
                 otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
+
+                robotX = otherRobot["x"]
+                robotY = otherRobot["y"]
                 if "robot" in message["data"]:
-                    otherRobot["x"] = message["data"]["robot"]["x"]
-                    otherRobot["y"] = message["data"]["robot"]["y"]
+                    robotX = message["data"]["robot"]["x"]
+                    robotY = message["data"]["robot"]["y"]
 
                 log("Read sensors from Robot " + str(otherRobot["id"]))
                 await sendMessage("read_sensors_done", {
                     "robot_id": otherRobot["id"],
                     "sensors": {
-                        "up": otherRobot["y"] == 0 or mapData[otherRobot["y"] - 1][otherRobot["x"]] == TILE_CHEST,
-                        "left": otherRobot["x"] == 0 or mapData[otherRobot["y"]][otherRobot["x"] - 1] == TILE_CHEST,
-                        "right": otherRobot["x"] == mapWidth - 1 or mapData[otherRobot["y"]][otherRobot["x"] + 1] == TILE_CHEST,
-                        "down": otherRobot["y"] == mapHeight - 1 or mapData[otherRobot["y"] + 1][otherRobot["x"]] == TILE_CHEST
+                        "up": robotY == 0 or mapData[robotY - 1][robotX] == TILE_CHEST,
+                        "left": robotX == 0 or mapData[robotY][robotX - 1] == TILE_CHEST,
+                        "right": robotX == mapWidth - 1 or mapData[robotY][robotX + 1] == TILE_CHEST,
+                        "down": robotY == mapHeight - 1 or mapData[robotY + 1][robotX] == TILE_CHEST
                     }
                 })
 
@@ -98,8 +149,9 @@ async def websocketConnection():
             if message["type"] == "robot_tick_done":
                 otherRobot = next((robot for robot in robots if robot["id"] == message["data"]["robot_id"]), None)
                 if "robot" in message["data"]:
-                    otherRobot["x"] = message["data"]["robot"]["x"]
-                    otherRobot["y"] = message["data"]["robot"]["y"]
+                    updateRobotPosition(otherRobot, message["data"]["robot"]["x"], message["data"]["robot"]["y"])
+                else:
+                    updateRobotPosition(otherRobot, otherRobot["x"], otherRobot["y"])
                 log("Tick done from Robot " + str(otherRobot["id"]))
 
 asyncio.run(websocketConnection())
