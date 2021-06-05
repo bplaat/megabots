@@ -93,7 +93,13 @@ RectangleArena {
 }
 Group {
     children [
-    """ % (mapWidth / 10, mapHeight / 10, mapWidth / 10, mapWidth / 10, mapHeight / 10))
+    """ % (
+    mapWidth / 10,
+    mapHeight / 10,
+    mapWidth / 10,
+    mapWidth / 10,
+    mapHeight / 10
+))
 
         # Add chests of random maze
         chestCounter = 0
@@ -105,7 +111,11 @@ Group {
     translation %f 0.05 %f
     size 0.1 0.1 0.1
 }
-""" % (chestCounter, (x - mapWidth / 2) / 10 + 0.05, (y - mapHeight / 2) / 10 + 0.05))
+""" % (
+    chestCounter,
+    (x - mapWidth / 2) / 10 + 0.05,
+    (y - mapHeight / 2) / 10 + 0.05
+))
                     chestCounter += 1
 
         worldFile.write("""]
@@ -114,8 +124,8 @@ Group {
 
         # Add robots
         for robot in robots:
-            worldFile.write("""Robot {
-    name "Robot %d"
+            worldFile.write("""DEF robot_%d Robot {
+    name "robot_%d"
     translation %f 0.05 %f
     children [
         Solid {
@@ -133,41 +143,103 @@ Group {
                 }
             ]
         }
-        DistanceSensor {
-            name "Distance Right Sensor"
-            rotation 0 0 0 %f
+
+        Solid {
+            name "robot_%d_up_led"
+            translation 0 0.05 -0.02
+            children [
+                Shape {
+                    appearance Appearance {
+                        material DEF robot_%d_up_led Material {
+                            diffuseColor 0 0 0
+                        }
+                    }
+                    geometry Sphere {
+                        radius 0.0075
+                    }
+                }
+            ]
         }
-        DistanceSensor {
-            name "Distance Up Sensor"
-            rotation 0 0 0 %f
+
+        Solid {
+            name "robot_%d_left_led"
+            translation -0.02 0.05 0
+            children [
+                Shape {
+                    appearance Appearance {
+                        material DEF robot_%d_left_led Material {
+                            diffuseColor 0 0 0
+                        }
+                    }
+                    geometry Sphere {
+                        radius 0.0075
+                    }
+                }
+            ]
         }
-        DistanceSensor {
-            name "Distance Left Sensor"
-            rotation 0 0 0 %f
+
+        Solid {
+            name "robot_%d_right_led"
+            translation 0.02 0.05 0
+            children [
+                Shape {
+                    appearance Appearance {
+                        material DEF robot_%d_right_led Material {
+                            diffuseColor 0 0 0
+                        }
+                    }
+                    geometry Sphere {
+                        radius 0.0075
+                    }
+                }
+            ]
         }
-        DistanceSensor {
-            name "Distance Down Sensor"
-            rotation 0 0 0 %f
+
+        Solid {
+            name "robot_%d_down_led"
+            translation 0 0.05 0.02
+            children [
+                Shape {
+                    appearance Appearance {
+                        material DEF robot_%d_down_led Material {
+                            diffuseColor 0 0 0
+                        }
+                    }
+                    geometry Sphere {
+                        radius 0.0075
+                    }
+                }
+            ]
         }
     ]
     boundingObject USE robot_%d_shape
-    supervisor TRUE
-    controller "supervisor"
+    %s
 }
 """ % (
-                robot["id"],
-                (robot["x"] - mapWidth / 2) / 10 + 0.05,
-                (robot["y"] - mapHeight / 2) / 10 + 0.05,
+    robot["id"],
+    robot["id"],
+    (robot["x"] - mapWidth / 2) / 10 + 0.05,
+    (robot["y"] - mapHeight / 2) / 10 + 0.05,
 
-                robot["id"],
-                robot["color"]["red"],
-                robot["color"]["green"],
-                robot["color"]["blue"],
+    robot["id"],
+    robot["color"]["red"],
+    robot["color"]["green"],
+    robot["color"]["blue"],
 
-                0,
-                math.pi * 0.5,
-                math.pi,
-                math.pi * 1.5,
+    robot["id"],
+    robot["id"],
 
-                robot["id"]
+    robot["id"],
+    robot["id"],
+
+    robot["id"],
+    robot["id"],
+
+    robot["id"],
+    robot["id"],
+
+    robot["id"],
+    robot["id"] == 1 and """supervisor TRUE
+controller "supervisor"
+""" or ""
             ))

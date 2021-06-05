@@ -1,3 +1,4 @@
-# Dont commit generated map json file and generated webot files
-world.wbt
+# Dont commit generated map json file and generated webots files
+*.wbproj
+*.wbt
 map.json
