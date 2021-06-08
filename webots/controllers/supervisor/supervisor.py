@@ -36,10 +36,7 @@ robots = [
     { "id": 4, "x": None, "y": None, "connected": False }
 ]
 
-updateRobotCounter = 0
 def updateRobotPosition(robot, x, y):
-    global updateRobotCounter
-
     oldRobotX = robot["x"]
     oldRobotY = robot["y"]
     robot["x"] = x
@@ -77,11 +74,7 @@ def updateRobotPosition(robot, x, y):
         else:
             downLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
 
-    if updateRobotCounter == 3:
-        updateRobotCounter = 0
-        supervisor.step(int(supervisor.getBasicTimeStep()))
-    else:
-        updateRobotCounter += 1
+    supervisor.step(int(supervisor.getBasicTimeStep()))
 
 # Simple log function
 def log(line):

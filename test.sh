@@ -1,6 +1,6 @@
 # Script to launch the server, webserver and all 4 clients to test
 
-# For MacOS alias python to Python 3
+# For macOS alias python to Python 3
 if [ "$(uname -s)" == "Darwin" ]; then
     alias python=python3
 fi
@@ -15,7 +15,7 @@ if [[ $1 == "webots" ]]; then
     if [ "$(uname -s)" == "Linux" ]; then
         webots webots/worlds/world.wbt & disown
     # elif [ "$(uname -s)" == "Darwin" ]; then
-    # TODO
+        # TODO
     else
         start webots/worlds/world.wbt
     fi
@@ -31,7 +31,7 @@ fi
 
 sleep 0.25
 
-python -m http.server 8081 --directory server/website &
+python -m http.server 8081 --directory server/website > /dev/null 2> /dev/null &
 if [ "$(uname -s)" == "Linux" ]; then
     xdg-open http://localhost:8081/ & disown
 elif [ "$(uname -s)" == "Darwin" ]; then
@@ -44,7 +44,7 @@ sleep 0.25
 
 python clients/bastiaan/client.py 1 &
 python clients/bastiaan/client.py 2 &
-python clients/maarten/client.py &
+python clients/bastiaan/client.py 3 &
 python clients/bastiaan/client.py 4
 
 wait < <(jobs -p)

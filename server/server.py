@@ -77,7 +77,7 @@ async def sendWorldMessage(item):
     # Wait until Webots supervisor is connected and given map data
     while mapData == None:
         log("Waiting for supervisor...")
-        await asyncio.sleep(250 / 1000)
+        await asyncio.sleep(200 / 1000)
 
     programsData = []
     for program in programs:
@@ -202,9 +202,12 @@ programs = [
 activeProgram = next((program for program in programs if program["id"] == 2), None)
 
 # Start a tick cycle
+tickRunning = False
 currentRobotIndex = None
 async def tick():
-    global currentRobotIndex
+    global tickRunning, currentRobotIndex
+
+    tickRunning = True
 
     # Run active program
     if activeProgram["function"] != None:
@@ -221,12 +224,18 @@ async def tick():
 
 # Ticker timer callback
 async def timerCallback(extra):
+    # Wait until previous tick is done
+    while tickRunning:
+        log("Waiting for tick to be done...")
+        await asyncio.sleep(100 / 1000)
+
     await tick()
+
     if tickType == TICK_AUTO:
         Timer(tickSpeed / 1000, timerCallback, None)
 
 async def websocketConnection(websocket, path):
-    global mapWidth, mapHeight, mapData, others, tickType, tickSpeed, activeProgram, currentRobotIndex
+    global mapWidth, mapHeight, mapData, others, tickType, tickSpeed, activeProgram, tickRunning, currentRobotIndex
 
     async for data in websocket:
         log("Client message: " + data)
@@ -497,6 +506,8 @@ async def websocketConnection(websocket, path):
                     log("Tick for Robot " + str(robots[currentRobotIndex]["id"]))
                     await broadcastMessage("robot_tick", { "robot_id": robots[currentRobotIndex]["id"] })
                     currentRobotIndex += 1
+                    continue
+            tickRunning = False
 
     # Disconnect message for robots
     for robot in robots:
