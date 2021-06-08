@@ -85,13 +85,13 @@ TexturedBackground {
 }
 TexturedBackgroundLight {
 }
-RectangleArena {
+DEF arena RectangleArena {
     translation 0 0 0
     floorSize %f %f
     floorTileSize 0.2 0.2
     wallHeight 0.05
 }
-Group {
+DEF chests Group {
     children [
     """ % (
     mapWidth / 10,

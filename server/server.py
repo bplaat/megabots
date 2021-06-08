@@ -207,6 +207,10 @@ currentRobotIndex = None
 async def tick():
     global tickRunning, currentRobotIndex
 
+    # Wait until previous tick is done
+    while tickRunning:
+        log("Waiting for tick to be done...")
+        await asyncio.sleep(100 / 1000)
     tickRunning = True
 
     # Run active program
@@ -224,13 +228,7 @@ async def tick():
 
 # Ticker timer callback
 async def timerCallback(extra):
-    # Wait until previous tick is done
-    while tickRunning:
-        log("Waiting for tick to be done...")
-        await asyncio.sleep(100 / 1000)
-
     await tick()
-
     if tickType == TICK_AUTO:
         Timer(tickSpeed / 1000, timerCallback, None)
 

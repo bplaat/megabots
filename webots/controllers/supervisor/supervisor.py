@@ -19,14 +19,6 @@ TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
 
-# Load map from file
-mapFile = open("../../map.json", "r")
-mapFileData = json.loads(mapFile.read())
-mapFile.close()
-mapWidth = mapFileData["width"]
-mapHeight = mapFileData["height"]
-mapData = mapFileData["data"]
-
 # Robots
 supervisor = Supervisor()
 robots = [
@@ -35,6 +27,19 @@ robots = [
     { "id": 3, "x": None, "y": None, "connected": False },
     { "id": 4, "x": None, "y": None, "connected": False }
 ]
+
+# Load map from webots world
+arena = supervisor.getFromDef("arena")
+arenaFloorSize = arena.getField("floorSize").getSFVec2f()
+mapWidth = round(arenaFloorSize[0] * 10)
+mapHeight = round(arenaFloorSize[1] * 10)
+
+mapData = [[TILE_FLOOR] * mapWidth for i in range(mapHeight)]
+chests = supervisor.getFromDef("chests").getField("children")
+for i in range(chests.getCount()):
+    chest = chests.getMFNode(i)
+    chestPosition = chest.getField("translation").getSFVec3f()
+    mapData[round((chestPosition[2] - 0.05) * 10 + mapHeight / 2)][round((chestPosition[0] - 0.05) * 10 + mapWidth / 2)] = TILE_CHEST
 
 def updateRobotPosition(robot, x, y):
     oldRobotX = robot["x"]
