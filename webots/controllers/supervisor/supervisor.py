@@ -39,7 +39,12 @@ chests = supervisor.getFromDef("chests").getField("children")
 for i in range(chests.getCount()):
     chest = chests.getMFNode(i)
     chestPosition = chest.getField("translation").getSFVec3f()
-    mapData[round((chestPosition[2] - 0.05) * 10 + mapHeight / 2)][round((chestPosition[0] - 0.05) * 10 + mapWidth / 2)] = TILE_CHEST
+    chestSize = chest.getField("size").getSFVec3f()
+    x = round((chestPosition[0] - (chestSize[0] - 0.1) / 2) * 10)
+    y = round((chestPosition[2] - (chestSize[2] - 0.1) / 2) * 10)
+    for ry in range(round(chestSize[2] * 10)):
+        for rx in range(round(chestSize[0] * 10)):
+            mapData[y + ry][x + rx] = TILE_CHEST
 
 def updateRobotPosition(robot, x, y):
     oldRobotX = robot["x"]
@@ -48,11 +53,7 @@ def updateRobotPosition(robot, x, y):
     robot["y"] = y
 
     robotNode = supervisor.getFromDef("robot_" + str(robot["id"]))
-    robotNode.getField("translation").setSFVec3f([
-        (robot["x"] - mapWidth / 2) / 10 + 0.05,
-        0.05,
-        (robot["y"] - mapHeight / 2) / 10 + 0.05
-    ])
+    robotNode.getField("translation").setSFVec3f([ robot["x"] / 10, 0.05, robot["y"] / 10 ])
 
     if oldRobotX != None and oldRobotY != None:
         upLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_up_led")
