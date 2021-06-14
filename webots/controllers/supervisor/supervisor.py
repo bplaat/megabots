@@ -19,14 +19,6 @@ TILE_UNKOWN = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
 
-# Load map from file
-mapFile = open("../../map.json", "r")
-mapFileData = json.loads(mapFile.read())
-mapFile.close()
-mapWidth = mapFileData["width"]
-mapHeight = mapFileData["height"]
-mapData = mapFileData["data"]
-
 # Robots
 supervisor = Supervisor()
 robots = [
@@ -36,21 +28,32 @@ robots = [
     { "id": 4, "x": None, "y": None, "connected": False }
 ]
 
-updateRobotCounter = 0
-def updateRobotPosition(robot, x, y):
-    global updateRobotCounter
+# Load map from webots world
+arena = supervisor.getFromDef("arena")
+arenaFloorSize = arena.getField("floorSize").getSFVec2f()
+mapWidth = round(arenaFloorSize[0] * 10)
+mapHeight = round(arenaFloorSize[1] * 10)
 
+mapData = [[TILE_FLOOR] * mapWidth for i in range(mapHeight)]
+chests = supervisor.getFromDef("chests").getField("children")
+for i in range(chests.getCount()):
+    chest = chests.getMFNode(i)
+    chestPosition = chest.getField("translation").getSFVec3f()
+    chestSize = chest.getField("size").getSFVec3f()
+    x = round((chestPosition[0] - (chestSize[0] - 0.1) / 2) * 10)
+    y = round((chestPosition[2] - (chestSize[2] - 0.1) / 2) * 10)
+    for ry in range(round(chestSize[2] * 10)):
+        for rx in range(round(chestSize[0] * 10)):
+            mapData[y + ry][x + rx] = TILE_CHEST
+
+def updateRobotPosition(robot, x, y):
     oldRobotX = robot["x"]
     oldRobotY = robot["y"]
     robot["x"] = x
     robot["y"] = y
 
     robotNode = supervisor.getFromDef("robot_" + str(robot["id"]))
-    robotNode.getField("translation").setSFVec3f([
-        (robot["x"] - mapWidth / 2) / 10 + 0.05,
-        0.05,
-        (robot["y"] - mapHeight / 2) / 10 + 0.05
-    ])
+    robotNode.getField("translation").setSFVec3f([ robot["x"] / 10, 0.05, robot["y"] / 10 ])
 
     if oldRobotX != None and oldRobotY != None:
         upLedNode = supervisor.getFromDef("robot_" + str(robot["id"]) + "_up_led")
@@ -77,11 +80,7 @@ def updateRobotPosition(robot, x, y):
         else:
             downLedNode.getField("diffuseColor").setSFColor([ 0, 0, 0 ])
 
-    if updateRobotCounter == 3:
-        updateRobotCounter = 0
-        supervisor.step(int(supervisor.getBasicTimeStep()))
-    else:
-        updateRobotCounter += 1
+    supervisor.step(int(supervisor.getBasicTimeStep()))
 
 # Simple log function
 def log(line):

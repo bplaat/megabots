@@ -74,29 +74,31 @@ if len(sys.argv) >= 4 and sys.argv[3] == "webots":
         # Create world and rectangle arena
         worldFile.write("""#VRML_SIM R2021a utf8
 WorldInfo {
-    basicTimeStep 100
+    basicTimeStep 25
     coordinateSystem "NUE"
 }
 Viewpoint {
-    orientation -0.8 0.5 0.25 1.0072345104625866
+    orientation -0.8 0.5 0.25 1
     position %f %f %f
 }
 TexturedBackground {
 }
 TexturedBackgroundLight {
 }
-RectangleArena {
-    translation 0 0 0
+DEF arena RectangleArena {
+    translation %f 0 %f
     floorSize %f %f
     floorTileSize 0.2 0.2
     wallHeight 0.05
 }
-Group {
+DEF chests Group {
     children [
     """ % (
-    mapWidth / 10,
-    mapHeight / 10,
-    mapWidth / 10,
+    mapWidth * 2 / 10,
+    mapHeight * 2 / 10,
+    mapWidth * 2 / 10,
+    mapWidth / 2 / 10 - 0.05,
+    mapHeight / 2 / 10 - 0.05,
     mapWidth / 10,
     mapHeight / 10
 ))
@@ -113,8 +115,8 @@ Group {
 }
 """ % (
     chestCounter,
-    (x - mapWidth / 2) / 10 + 0.05,
-    (y - mapHeight / 2) / 10 + 0.05
+    x / 10,
+    y / 10
 ))
                     chestCounter += 1
 
@@ -218,8 +220,8 @@ Group {
 """ % (
     robot["id"],
     robot["id"],
-    (robot["x"] - mapWidth / 2) / 10 + 0.05,
-    (robot["y"] - mapHeight / 2) / 10 + 0.05,
+    robot["x"] / 10,
+    robot["y"] / 10,
 
     robot["id"],
     robot["color"]["red"],
