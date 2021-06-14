@@ -1,12 +1,11 @@
 #!/usr/bin/env python
 
-#Rowdey's MegaBot client
+# Rowdey's MegaBot client
 
 import asyncio
 import json
 import websockets
 import collections
-from typing import *
 
 # Constants
 DEBUG = True
