@@ -8,7 +8,7 @@ import websockets
 import collections
 
 # Constants
-DEBUG = True
+DEBUG = False
 
 ROBOT_ID = 4
 
@@ -42,20 +42,20 @@ def getTileNeighbors(point):
 class Queue:
     def __init__(self):
         self.elements = collections.deque()
-    
+
     def empty(self) -> bool:
         return not self.elements
-    
+
     def put(self, x):
         self.elements.append(x)
-    
+
     def get(self):
         return self.elements.popleft()
 
 
 # Path finding algorithm based on Breadth-first search algorithm
 def findPath(begin, finish, withOtherRobots):
-    
+
     # Make tuples of coords
     start = (begin["x"], begin["y"])
     end = (finish["x"], finish["y"])
@@ -90,7 +90,7 @@ def findPath(begin, finish, withOtherRobots):
                 # Check if tile is traversable
                 tileType = mapData[next[1]][next[0]]
                 if  (tileType == TILE_FLOOR or tileType == TILE_UNKOWN):
-                    
+
                     if next not in came_from:
                         frontier.put(next)
                         came_from[next] = current
@@ -103,7 +103,7 @@ def findPath(begin, finish, withOtherRobots):
         return None
 
     path = []
-    while current != start: 
+    while current != start:
         if current in came_from.keys() :
             path.append(current)
             current = came_from[current]

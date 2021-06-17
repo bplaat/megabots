@@ -6,7 +6,9 @@ if [ "$(uname -s)" == "Darwin" ]; then
 fi
 
 if [[ $1 == "webots" ]]; then
-    python map-generator.py 16 16 webots
+    if [[ $2 != "nogen" ]]; then
+        python map-generator.py 16 16 webots
+    fi
 
     python server/server.py &
 
@@ -14,13 +16,15 @@ if [[ $1 == "webots" ]]; then
 
     if [ "$(uname -s)" == "Linux" ]; then
         webots webots/worlds/world.wbt & disown
-    # elif [ "$(uname -s)" == "Darwin" ]; then
-        # TODO
+    elif [ "$(uname -s)" == "Darwin" ]; then
+        echo "TODO..."
     else
         start webots/worlds/world.wbt
     fi
 else
-    python map-generator.py 24 24
+    if [[ $2 != "nogen" ]]; then
+        python map-generator.py 24 24
+    fi
 
     python server/server.py &
 
@@ -45,6 +49,6 @@ sleep 0.25
 python clients/bastiaan/client.py 1 &
 python clients/bastiaan/client.py 2 &
 python clients/bastiaan/client.py 3 &
-python clients/bastiaan/client.py 4
+python clients/rowdey/client.py
 
 wait < <(jobs -p)
