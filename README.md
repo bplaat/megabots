@@ -20,6 +20,9 @@ Some mega bots living in a grid
     ./test.sh webots
     ```
 
+## Dashboard screenshot
+![Megabots dashboard screenshot](docs/screenshot.png)
+
 ## Communication design without Webots:
 ![Communication design without Webots](docs/communication-design.png)
 
