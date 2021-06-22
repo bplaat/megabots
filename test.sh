@@ -17,7 +17,7 @@ if [[ $1 == "webots" ]]; then
     if [ "$(uname -s)" == "Linux" ]; then
         webots webots/worlds/world.wbt & disown
     elif [ "$(uname -s)" == "Darwin" ]; then
-        echo "TODO..."
+        open webots/worlds/world.wbt
     else
         start webots/worlds/world.wbt
     fi
@@ -47,7 +47,7 @@ fi
 sleep 0.25
 
 python clients/bastiaan/client.py 1 &
-python clients/bastiaan/client.py 2 &
+python clients/eki/client.py 2 &
 python clients/bastiaan/client.py 3 &
 python clients/rowdey/client.py
 
