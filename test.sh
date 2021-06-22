@@ -48,7 +48,7 @@ sleep 0.25
 
 python clients/bastiaan/client.py 1 &
 python clients/eki/client.py 2 &
-python clients/bastiaan/client.py 3 &
+python clients/maarten/client.py 3 &
 python clients/rowdey/client.py
 
 wait < <(jobs -p)
