@@ -24,7 +24,7 @@ robots = [
     {"id": 4, "x": None, "y": None, "directions": [], "connected": False}
 ]
 
-
+# BEGIN PATHFINDING #
 class Node:
     """
     A node class for A* Pathfinding
@@ -166,16 +166,34 @@ def astar(start, end, withOtherRobots):
             if len([closed_child for closed_child in closed_list if closed_child == child]) > 0:
                 continue
 
-            # Create the f, g, and h values
-            child.g = current_node.g + 1
-            child.h = ((child.position[0] - end_node.position[0]) ** 2) + (
-                        (child.position[1] - end_node.position[1]) ** 2)
+# Create the f, g, and h values
+            child.g = current_node.g + (((child.position[0] - child.parent.position[0]) ** 2) + ((child.position[1] - child.parent.position[1]) ** 2)) ** 0.5
+            child.h = (((child.position[0] - end_node.position[0]) ** 2) + ((child.position[1] - end_node.position[1]) ** 2)) ** 0.5
             child.f = child.g + child.h
 
             # Child is already in the open list
-            if len([open_node for open_node in open_list if
-                    child.position == open_node.position and child.g > open_node.g]) > 0:
-                continue
+            # if len([open_node for open_node in open_list if
+            #         child.position == open_node.position and child.g > open_node.g]) > 0:
+            #     continue
+             # Child is already in the open list
+            index = None
+            for i in range(0, len(open_list)):
+                if child.position == open_list[i].position:
+                    index = i
+                    break
+
+            if index:
+                if child.g >= open_list[index].g:
+                    continue
+                else:
+                    open_list[index] = open_list[-1]
+                    open_list.pop()
+                    if index < len(open_list):
+                        heapq._siftup(open_list, index)
+                        heapq._siftdown(open_list, 0, index)
+
+
+
 
             # Add the child to the open list
             heapq.heappush(open_list, child)
@@ -183,12 +201,13 @@ def astar(start, end, withOtherRobots):
     warn("Couldn't get a path to destination")
     return None
 
+# END PATHFINDING #
 
 def log(line):
     if DEBUG:
         print("[ROBOT " + str(ROBOT_ID) + "] " + line)
 
-
+# Opent de server verbinding, gebruikmakend van de websocket library.
 async def websocketConnection():
     global mapWidth, mapHeight, mapData
 
