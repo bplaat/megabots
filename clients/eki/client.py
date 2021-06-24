@@ -1,7 +1,6 @@
 import asyncio
 import json
 import websockets
-from warnings import warn
 import heapq
 
 DEBUG = False
@@ -9,7 +8,7 @@ DEBUG = False
 ROBOT_ID = 2
 WEBSOCKETS_URL = "ws://127.0.0.1:8080/"
 
-TILE_UNKOWN = 0
+TILE_UNKNOW = 0
 TILE_FLOOR = 1
 TILE_CHEST = 2
 
@@ -26,9 +25,6 @@ robots = [
 
 
 class Node:
-    """
-    A node class for A* Pathfinding
-    """
 
     def __init__(self, parent=None, position=None):
         self.parent = parent
@@ -53,7 +49,7 @@ class Node:
         return self.f > other.f
 
 
-def return_path(current_node, start_node):
+def return_path(current_node):
     path = []
     current = current_node
     while current is not None:
@@ -62,15 +58,9 @@ def return_path(current_node, start_node):
     return path[::-1]  # Return reversed path
 
 
-
+# return path from start to end as list of tuple
 def astar(start, end, withOtherRobots):
-    """
-    Returns a list of tuples as a path from the given start to the given end in the given maze
-    :param maze:
-    :param start:
-    :param end:
-    :return:
-    """
+
     # make coordination as tuple
     start_as_tuple = (start["x"], start["y"])
     end_as_tuple = (end["x"], end["y"])
@@ -100,29 +90,27 @@ def astar(start, end, withOtherRobots):
     # Loop until you find the end
     while len(open_list) > 0:
         outer_iterations += 1
-        for robot in robots:
 
+
+        for robot in robots:
+            # if destination position equels other robot position then cancel
             if end_as_tuple[0] == robot["x"] and end_as_tuple[1] == robot["y"] and robot["connected"]:
-                print("wij zijn niet get")
                 return None
 
+        # if destination position equels tile_chest then cancel
         if mapData[end_as_tuple[1]][end_as_tuple[0]] == TILE_CHEST:
-            print("wij zijn niet get 2")
             return None
 
         if outer_iterations > max_iterations:
-            # if we hit this point return the path such as it is
-            # it will not contain the destination
-            warn("giving up on pathfinding too many iterations")
             return None
 
-            # Get the current node
+        # Get the current node
         current_node = heapq.heappop(open_list)
         closed_list.append(current_node)
 
         # Found the goal
         if current_node == end_node:
-            return return_path(current_node, start_node)
+            return return_path(current_node)
 
 
         # Generate children
@@ -138,6 +126,7 @@ def astar(start, end, withOtherRobots):
                     len(mapData[len(mapData) - 1]) - 1) or node_position[0] < 0:
                 continue
 
+            # if other robot is connected
             if withOtherRobots:
                 colliding = False
                 for robot in robots:
@@ -149,14 +138,15 @@ def astar(start, end, withOtherRobots):
 
 
             # Make sure walkable terrain
-            if mapData[node_position[1]][node_position[0]] > 1:
+            tile_status = mapData[node_position[1]][node_position[0]]
+            if tile_status > TILE_FLOOR:
                 continue
 
 
             # Create new node
             new_node = Node(current_node, node_position)
 
-            # Append
+            # Append possible path to children
             children.append(new_node)
 
 
@@ -167,20 +157,32 @@ def astar(start, end, withOtherRobots):
                 continue
 
             # Create the f, g, and h values
-            child.g = current_node.g + 1
-            child.h = ((child.position[0] - end_node.position[0]) ** 2) + (
-                        (child.position[1] - end_node.position[1]) ** 2)
+            child.g = current_node.g + (((child.position[0] - child.parent.position[0]) ** 2) + (
+                    (child.position[1] - child.parent.position[1]) ** 2)) ** 0.5
+            child.h = (((child.position[0] - end_node.position[0]) ** 2) + (
+                    (child.position[1] - end_node.position[1]) ** 2)) ** 0.5
             child.f = child.g + child.h
 
             # Child is already in the open list
-            if len([open_node for open_node in open_list if
-                    child.position == open_node.position and child.g > open_node.g]) > 0:
-                continue
+            index = None
+            for i in range(0, len(open_list)):
+                if child.position == open_list[i].position:
+                    index = i
+                    break
+
+            if index:
+                if child.g >= open_list[index].g:
+                    continue
+                else:
+                    open_list[index] = open_list[-1]
+                    open_list.pop()
+                    if index < len(open_list):
+                        heapq._siftup(open_list, index)
+                        heapq._siftdown(open_list, 0, index)
 
             # Add the child to the open list
             heapq.heappush(open_list, child)
 
-    warn("Couldn't get a path to destination")
     return None
 
 
@@ -216,7 +218,7 @@ async def websocketConnection():
                 mapHeight = message["data"]["map"]["height"]
 
                 # Create map data
-                mapData = [[TILE_UNKOWN] * mapWidth for i in range(mapHeight)]
+                mapData = [[TILE_UNKNOW] * mapWidth for i in range(mapHeight)]
                 mapData[0][0] = TILE_FLOOR
                 mapData[0][mapWidth - 1] = TILE_FLOOR
                 mapData[mapHeight - 1][0] = TILE_FLOOR
@@ -225,7 +227,7 @@ async def websocketConnection():
                 # Patch map data with given map
                 for y in range(mapHeight):
                     for x in range(mapWidth):
-                        if mapData[y][x] == TILE_UNKOWN and message["data"]["map"]["data"][y][x] != TILE_UNKOWN:
+                        if mapData[y][x] == TILE_UNKNOW and message["data"]["map"]["data"][y][x] != TILE_UNKNOW:
                             mapData[y][x] = message["data"]["map"]["data"][y][x]
 
             # Robot connect message
@@ -391,8 +393,8 @@ async def websocketConnection():
 
                     if "map" in message["data"]:
                         for mapUpdate in message["data"]["map"]:
-                            if mapData[mapUpdate["y"]][mapUpdate["x"]] == TILE_UNKOWN and mapUpdate[
-                                "type"] != TILE_UNKOWN:
+                            if mapData[mapUpdate["y"]][mapUpdate["x"]] == TILE_UNKNOW and mapUpdate[
+                                "type"] != TILE_UNKNOW:
                                 mapData[mapUpdate["y"]][mapUpdate["x"]] = mapUpdate["type"]
 
                     log("Tick done from Robot " + str(otherRobot["id"]))
